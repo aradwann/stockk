@@ -25,6 +25,8 @@ func NewOrderController(
 	}
 }
 
+// TODO: handle the following cases:
+// - validate product id and quatitiy are positive numbers
 func (oc *OrderController) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	var orderRequest struct {
 		Products []models.OrderItem `json:"products"`

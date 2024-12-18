@@ -92,12 +92,7 @@ func (r *IngredientRepository) GetAllIngredients(ctx context.Context) ([]models.
 func (r *IngredientRepository) UpdateStock(ctx context.Context, tx *sql.Tx, ingredientID int, newStock float64) error {
 	query := `
 		UPDATE ingredients 
-		SET current_stock = $1, 
-			alert_sent = CASE 
-				WHEN (current_stock / total_stock * 100) >= 50 AND ($1 / total_stock * 100) < 50 
-				THEN true 
-				ELSE alert_sent 
-			END
+		SET current_stock = $1 
 		WHERE id = $2
 	`
 	var err error

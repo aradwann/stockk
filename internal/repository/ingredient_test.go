@@ -132,7 +132,7 @@ func TestIngredientRepository_UpdateStock(t *testing.T) {
 	newStock := 60.0
 
 	// Mock the query for updating the stock
-	mock.ExpectExec(`UPDATE ingredients SET current_stock = \$(\d+), alert_sent = CASE WHEN \(current_stock / total_stock \* 100\) >= 50 AND \(\$1 / total_stock \* 100\) < 50 THEN true ELSE alert_sent END WHERE id = \$(\d)`).
+	mock.ExpectExec(`UPDATE ingredients SET current_stock = \$(\d+) WHERE id = \$(\d)`).
 		WithArgs(newStock, ingredientID).
 		WillReturnResult(sqlmock.NewResult(1, 1)) // Mock success for the update
 
