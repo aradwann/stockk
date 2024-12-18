@@ -31,7 +31,8 @@ WORKDIR /root/
 COPY --from=builder /app/stockk .
 
 # Copy migration files
-COPY --from=builder /app/migrations ./migrations
+COPY --from=builder /app/db/migrations ./db/migrations
+COPY --from=builder /app/.env ./.env
 
 # Expose port for the application
 EXPOSE 8080
