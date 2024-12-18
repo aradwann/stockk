@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/go-chi/render"
 	slogchi "github.com/samber/slog-chi"
 
 	"stockk/internal/config"
@@ -43,20 +44,21 @@ func main() {
 	productRepo := repository.NewProductRepository(dbConn)
 
 	// Initialize services
-	ingredientService := service.NewIngredientService(ingredientRepo)
 	orderService := service.NewOrderService(orderRepo, productRepo, ingredientRepo)
 
 	// Initialize controllers
-	orderController := controllers.NewOrderController(orderService, ingredientService)
+	orderController := controllers.NewOrderController(orderService)
 
 	// Create router
 	r := chi.NewRouter()
 
 	// Middleware
+	r.Use(middleware.AllowContentType("application/json"))
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(slogchi.New(logger))
 	r.Use(middleware.Recoverer)
+	r.Use(render.SetContentType(render.ContentTypeJSON))
 
 	// CORS middleware
 	r.Use(cors.Handler(cors.Options{

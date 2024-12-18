@@ -20,7 +20,7 @@ func NewOrderService(orderRepo *repository.OrderRepository, productRepo *reposit
 }
 
 // TODO: handle the following cases:
-// - ingredients are zero or negative
+// - ingredients amounts are zero or negative
 func (os *OrderService) CreateOrder(ctx context.Context, orderItems []models.OrderItem) (*models.Order, error) {
 	// Begin transaction
 	tx, err := os.orderRepo.BeginTransaction()

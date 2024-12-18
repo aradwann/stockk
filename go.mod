@@ -7,6 +7,7 @@ require (
 	github.com/aradwann/eenergy v0.0.0-20240502185314-0cfb18962177
 	github.com/go-chi/chi/v5 v5.2.0
 	github.com/go-chi/cors v1.2.1
+	github.com/go-chi/render v1.0.3
 	github.com/golang-migrate/migrate/v4 v4.18.1
 	github.com/jackc/pgx/v5 v5.7.1
 	github.com/lib/pq v1.10.9
@@ -16,6 +17,7 @@ require (
 )
 
 require (
+	github.com/ajg/form v1.5.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
