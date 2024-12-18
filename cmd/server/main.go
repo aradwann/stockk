@@ -40,10 +40,11 @@ func main() {
 	// Initialize repositories
 	ingredientRepo := repository.NewIngredientRepository(dbConn)
 	orderRepo := repository.NewOrderRepository(dbConn)
+	productRepo := repository.NewProductRepository(dbConn)
 
 	// Initialize services
 	ingredientService := service.NewIngredientService(ingredientRepo)
-	orderService := service.NewOrderService(orderRepo)
+	orderService := service.NewOrderService(orderRepo, productRepo, ingredientRepo)
 
 	// Initialize controllers
 	orderController := controllers.NewOrderController(orderService, ingredientService)

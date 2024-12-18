@@ -38,7 +38,7 @@ func TestIngredientRepository_GetIngredientByID(t *testing.T) {
 			AddRow(expectedIngredient.ID, expectedIngredient.Name, expectedIngredient.TotalStock, expectedIngredient.CurrentStock, expectedIngredient.AlertSent))
 
 	// Call the method under test
-	ingredient, err := repo.GetIngredientByID(context.Background(), ingredientID)
+	ingredient, err := repo.GetIngredientByID(context.Background(), nil, ingredientID)
 
 	// Assertions
 	assert.NoError(t, err)
@@ -69,7 +69,7 @@ func TestIngredientRepository_GetIngredientByID_NotFound(t *testing.T) {
 		WillReturnError(sql.ErrNoRows)
 
 	// Call the method under test
-	ingredient, err := repo.GetIngredientByID(context.Background(), ingredientID)
+	ingredient, err := repo.GetIngredientByID(context.Background(), nil, ingredientID)
 
 	// Assertions
 	assert.Error(t, err)
@@ -137,7 +137,7 @@ func TestIngredientRepository_UpdateStock(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(1, 1)) // Mock success for the update
 
 	// Call the method under test
-	err = repo.UpdateStock(context.Background(), ingredientID, newStock)
+	err = repo.UpdateStock(context.Background(), nil, ingredientID, newStock)
 
 	// Assertions
 	assert.NoError(t, err)

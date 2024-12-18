@@ -50,7 +50,7 @@ func TestOrderRepository_CreateOrder(t *testing.T) {
 	mock.ExpectCommit()
 
 	// Begin a transaction (this will match the mock expectation)
-	tx, err := repo.BeginTransaction(context.Background())
+	tx, err := repo.BeginTransaction()
 	if err != nil {
 		t.Fatalf("Failed to begin transaction: %v", err)
 	}

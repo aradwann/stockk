@@ -18,7 +18,7 @@ func NewIngredientService(ingredientRepo *repository.IngredientRepository) *Ingr
 func (is *IngredientService) UpdateIngredientStock(ctx context.Context, ingredients []models.Ingredient) error {
 	for _, ingredient := range ingredients {
 		// Update stock in database
-		if err := is.ingredientRepo.UpdateStock(ctx, ingredient.ID, ingredient.CurrentStock); err != nil {
+		if err := is.ingredientRepo.UpdateStock(ctx, nil, ingredient.ID, ingredient.CurrentStock); err != nil {
 			return err
 		}
 	}

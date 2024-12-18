@@ -16,7 +16,7 @@ func NewIngredientRepository(db *sql.DB) *IngredientRepository {
 	return &IngredientRepository{db: db}
 }
 
-func (r *IngredientRepository) GetIngredientByID(ctx context.Context, id int) (*models.Ingredient, error) {
+func (r *IngredientRepository) GetIngredientByID(ctx context.Context, tx *sql.Tx, id int) (*models.Ingredient, error) {
 	query := `
 		SELECT id, name, total_stock, current_stock, alert_sent 
 		FROM ingredients 
@@ -24,13 +24,26 @@ func (r *IngredientRepository) GetIngredientByID(ctx context.Context, id int) (*
 	`
 
 	var ingredient models.Ingredient
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&ingredient.ID,
-		&ingredient.Name,
-		&ingredient.TotalStock,
-		&ingredient.CurrentStock,
-		&ingredient.AlertSent,
-	)
+	var err error
+
+	// Use transaction if provided
+	if tx != nil {
+		err = tx.QueryRowContext(ctx, query, id).Scan(
+			&ingredient.ID,
+			&ingredient.Name,
+			&ingredient.TotalStock,
+			&ingredient.CurrentStock,
+			&ingredient.AlertSent,
+		)
+	} else {
+		err = r.db.QueryRowContext(ctx, query, id).Scan(
+			&ingredient.ID,
+			&ingredient.Name,
+			&ingredient.TotalStock,
+			&ingredient.CurrentStock,
+			&ingredient.AlertSent,
+		)
+	}
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -76,7 +89,7 @@ func (r *IngredientRepository) GetAllIngredients(ctx context.Context) ([]models.
 	return ingredients, nil
 }
 
-func (r *IngredientRepository) UpdateStock(ctx context.Context, ingredientID int, newStock float64) error {
+func (r *IngredientRepository) UpdateStock(ctx context.Context, tx *sql.Tx, ingredientID int, newStock float64) error {
 	query := `
 		UPDATE ingredients 
 		SET current_stock = $1, 
@@ -87,8 +100,13 @@ func (r *IngredientRepository) UpdateStock(ctx context.Context, ingredientID int
 			END
 		WHERE id = $2
 	`
-
-	result, err := r.db.ExecContext(ctx, query, newStock, ingredientID)
+	var err error
+	var result sql.Result
+	if tx != nil {
+		result, err = tx.ExecContext(ctx, query, newStock, ingredientID)
+	} else {
+		result, err = r.db.ExecContext(ctx, query, newStock, ingredientID)
+	}
 	if err != nil {
 		return fmt.Errorf("error updating ingredient stock: %w", err)
 	}

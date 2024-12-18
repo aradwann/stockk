@@ -17,10 +17,8 @@ func NewOrderRepository(db *sql.DB) *OrderRepository {
 	return &OrderRepository{db: db}
 }
 
-func (r *OrderRepository) BeginTransaction(ctx context.Context) (*sql.Tx, error) {
-	return r.db.BeginTx(ctx, &sql.TxOptions{
-		Isolation: sql.LevelSerializable,
-	})
+func (r *OrderRepository) BeginTransaction() (*sql.Tx, error) {
+	return r.db.Begin()
 }
 
 func (r *OrderRepository) CreateOrder(ctx context.Context, tx *sql.Tx, order *models.Order) error {
