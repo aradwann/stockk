@@ -3,32 +3,42 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"log/slog"
-	"net/http"
 	"time"
 
-	"stockk/internal/errors"
+	internalErrors "stockk/internal/errors"
 	"stockk/internal/models"
+
+	"github.com/jackc/pgconn"
 )
 
-type OrderRepository struct {
+type OrderRepository interface {
+	BeginTransaction() (*sql.Tx, error)
+	CreateOrder(ctx context.Context, tx *sql.Tx, order *models.Order) error
+	GetOrderByID(ctx context.Context, orderId int) (*models.Order, error)
+}
+
+type orderRepository struct {
 	db *sql.DB
 }
 
-func NewOrderRepository(db *sql.DB) *OrderRepository {
-	return &OrderRepository{db: db}
+func NewOrderRepository(db *sql.DB) OrderRepository {
+	return &orderRepository{db: db}
 }
 
-func (r *OrderRepository) BeginTransaction() (*sql.Tx, error) {
+var _ OrderRepository = (*orderRepository)(nil)
+
+func (r *orderRepository) BeginTransaction() (*sql.Tx, error) {
 	tx, err := r.db.Begin()
 	if err != nil {
 		slog.Error("error begin transation", "error", err)
-		return nil, errors.Wrap(errors.ErrInternalServer, "transaction failed")
+		return nil, internalErrors.Wrap(internalErrors.ErrInternalServer, "transaction failed")
 	}
 	return tx, nil
 }
 
-func (r *OrderRepository) CreateOrder(ctx context.Context, tx *sql.Tx, order *models.Order) error {
+func (r *orderRepository) CreateOrder(ctx context.Context, tx *sql.Tx, order *models.Order) error {
 	query := `
 		INSERT INTO orders (created_at)
 		VALUES ($1)
@@ -39,7 +49,7 @@ func (r *OrderRepository) CreateOrder(ctx context.Context, tx *sql.Tx, order *mo
 	err := tx.QueryRowContext(ctx, query, time.Now()).Scan(&orderID)
 	if err != nil {
 		slog.Error("failed to create order", "error", err)
-		return errors.Wrap(errors.ErrInternalServer, "query failed")
+		return internalErrors.Wrap(internalErrors.ErrInternalServer, "query failed")
 	}
 
 	// Insert order items
@@ -51,8 +61,17 @@ func (r *OrderRepository) CreateOrder(ctx context.Context, tx *sql.Tx, order *mo
 	for _, item := range order.Items {
 		_, err := tx.ExecContext(ctx, itemQuery, orderID, item.ProductID, item.Quantity)
 		if err != nil {
-			slog.Error("failed to create order", "error", err)
-			return errors.Wrap(errors.ErrInternalServer, "query failed")
+			// Check if the error is a PgError
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) {
+				// Check for foreign key violation (SQLSTATE 23503)
+				if pgErr.Code == "23503" {
+					slog.Error("foreign key constraint violation", "detail", pgErr.Detail, "constraint", pgErr.ConstraintName)
+					return internalErrors.Wrap(internalErrors.ErrNotFound, "Product not found")
+				}
+			}
+			slog.Error("failed to insert order item", "error", err)
+			return internalErrors.Wrap(internalErrors.ErrInternalServer, "query failed")
 		}
 	}
 
@@ -60,7 +79,7 @@ func (r *OrderRepository) CreateOrder(ctx context.Context, tx *sql.Tx, order *mo
 	return nil
 }
 
-func (r *OrderRepository) GetOrderByID(ctx context.Context, orderID int) (*models.Order, error) {
+func (r *orderRepository) GetOrderByID(ctx context.Context, orderID int) (*models.Order, error) {
 	// Main order query
 	orderQuery := `
 		SELECT id, created_at
@@ -82,18 +101,17 @@ func (r *OrderRepository) GetOrderByID(ctx context.Context, orderID int) (*model
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, errors.Wrap(errors.ErrNotFound, "order not found")
+			return nil, internalErrors.Wrap(internalErrors.ErrNotFound, "order not found")
 		}
 		slog.Error("failed to retrieve order", "error", err)
-		return nil, errors.Wrap(errors.ErrInternalServer, "query failed")
+		return nil, internalErrors.Wrap(internalErrors.ErrInternalServer, "query failed")
 	}
 
 	// Fetch order items
 	rows, err := r.db.QueryContext(ctx, itemsQuery, orderID)
 	if err != nil {
-		appErr := errors.NewAppError(http.StatusInternalServerError, "error fetching order items", err)
-		slog.Error(appErr.Message, "orderID", orderID, "error", err)
-		return nil, appErr
+		slog.Error("failed to retrieve order items", "error", err)
+		return nil, internalErrors.Wrap(internalErrors.ErrInternalServer, "query failed")
 	}
 	defer rows.Close()
 
@@ -101,14 +119,14 @@ func (r *OrderRepository) GetOrderByID(ctx context.Context, orderID int) (*model
 		var item models.OrderItem
 		if err := rows.Scan(&item.ProductID, &item.Quantity); err != nil {
 			slog.Error("failed to retrieve order item", "error", err)
-			return nil, errors.Wrap(errors.ErrInternalServer, "query failed")
+			return nil, internalErrors.Wrap(internalErrors.ErrInternalServer, "query failed")
 		}
 		order.Items = append(order.Items, item)
 	}
 
 	if err = rows.Err(); err != nil {
 		slog.Error("failed to retrieve order item", "error", err)
-		return nil, errors.Wrap(errors.ErrInternalServer, "query failed")
+		return nil, internalErrors.Wrap(internalErrors.ErrInternalServer, "query failed")
 	}
 
 	return &order, nil

@@ -8,16 +8,22 @@ import (
 	"stockk/internal/models"
 )
 
-type ProductRepository struct {
+type ProductRepository interface {
+	GetProductById(ctx context.Context, tx *sql.Tx, productId int) (*models.Product, error)
+}
+
+type productRepository struct {
 	db *sql.DB
 }
 
-func NewProductRepository(db *sql.DB) *ProductRepository {
-	return &ProductRepository{db: db}
+func NewProductRepository(db *sql.DB) ProductRepository {
+	return &productRepository{db: db}
 }
 
-// GetByID fetches a product by its ID, including its ingredients and amounts
-func (r *ProductRepository) GetByID(ctx context.Context, tx *sql.Tx, productID int) (*models.Product, error) {
+var _ ProductRepository = (*productRepository)(nil)
+
+// GetProductById fetches a product by its ID, including its ingredients and amounts
+func (r *productRepository) GetProductById(ctx context.Context, tx *sql.Tx, productID int) (*models.Product, error) {
 	// Fetch the basic product details
 	productQuery := `SELECT id, name FROM products WHERE id = $1`
 	var product models.Product

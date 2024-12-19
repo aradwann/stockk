@@ -49,7 +49,7 @@ func TestProductRepository_GetByID(t *testing.T) {
 			AddRow(productID, 3, 20))
 
 	// Call the method under test
-	product, err := repo.GetByID(context.Background(), nil, productID)
+	product, err := repo.GetProductById(context.Background(), nil, productID)
 
 	// Assertions
 	assert.NoError(t, err, "Expected no error, got %v", err)
@@ -77,7 +77,7 @@ func TestProductRepository_GetByID_NotFound(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "name"}))
 
 	// Call the method under test
-	product, err := repo.GetByID(context.Background(), nil, productID)
+	product, err := repo.GetProductById(context.Background(), nil, productID)
 
 	// Assertions
 	assert.Error(t, err, "Expected error when product not found")

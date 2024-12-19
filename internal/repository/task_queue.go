@@ -16,15 +16,23 @@ type PayloadSendAlertEmail struct {
 	Ingredients []models.Ingredient `json:"ingredients"`
 }
 
-type TaskQueueRepository struct {
+type TaskQueueRepository interface {
+	EnqueueAlertEmailTask(ctx context.Context,
+		payload *PayloadSendAlertEmail,
+		opts ...asynq.Option,
+	) error
+}
+type taskQueueRepository struct {
 	client *asynq.Client
 }
 
-func NewTaskQueueRepository(client *asynq.Client) *TaskQueueRepository {
-	return &TaskQueueRepository{client: client}
+func NewTaskQueueRepository(client *asynq.Client) TaskQueueRepository {
+	return &taskQueueRepository{client: client}
 }
 
-func (r *TaskQueueRepository) EnqueueAlertEmailTask(ctx context.Context,
+var _ TaskQueueRepository = (*taskQueueRepository)(nil)
+
+func (r *taskQueueRepository) EnqueueAlertEmailTask(ctx context.Context,
 	payload *PayloadSendAlertEmail,
 	opts ...asynq.Option,
 ) error {

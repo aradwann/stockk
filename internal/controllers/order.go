@@ -16,13 +16,13 @@ import (
 )
 
 type OrderController struct {
-	orderService      *service.OrderService
-	ingredientService *service.IngredientService
+	orderService      service.OrderService
+	ingredientService service.IngredientService
 }
 
 func NewOrderController(
-	orderService *service.OrderService,
-	ingredientService *service.IngredientService,
+	orderService service.OrderService,
+	ingredientService service.IngredientService,
 ) *OrderController {
 	return &OrderController{
 		orderService:      orderService,

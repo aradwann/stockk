@@ -8,16 +8,22 @@ import (
 	"stockk/internal/repository"
 )
 
-type IngredientService struct {
-	ingredientRepo *repository.IngredientRepository
-	taskRepo       *repository.TaskQueueRepository
+type IngredientService interface {
+	UpdateIngredientStock(ctx context.Context, ingredients []models.Ingredient) error
+	CheckIngredientLevelsAndAlert(ctx context.Context) error
+}
+type ingredientService struct {
+	ingredientRepo repository.IngredientRepository
+	taskRepo       repository.TaskQueueRepository
 }
 
-func NewIngredientService(ingredientRepo *repository.IngredientRepository, taskRepo *repository.TaskQueueRepository) *IngredientService {
-	return &IngredientService{ingredientRepo: ingredientRepo, taskRepo: taskRepo}
+func NewIngredientService(ingredientRepo repository.IngredientRepository, taskRepo repository.TaskQueueRepository) IngredientService {
+	return &ingredientService{ingredientRepo: ingredientRepo, taskRepo: taskRepo}
 }
 
-func (is *IngredientService) UpdateIngredientStock(ctx context.Context, ingredients []models.Ingredient) error {
+var _ IngredientService = (*ingredientService)(nil)
+
+func (is *ingredientService) UpdateIngredientStock(ctx context.Context, ingredients []models.Ingredient) error {
 	for _, ingredient := range ingredients {
 		// Update stock in database
 		if err := is.ingredientRepo.UpdateStock(ctx, nil, ingredient.ID, ingredient.CurrentStock); err != nil {
@@ -32,7 +38,7 @@ func (is *IngredientService) UpdateIngredientStock(ctx context.Context, ingredie
 	return nil
 }
 
-func (is *IngredientService) CheckIngredientLevelsAndAlert(ctx context.Context) error {
+func (is *ingredientService) CheckIngredientLevelsAndAlert(ctx context.Context) error {
 	ingredients, err := is.ingredientRepo.CheckLowStockIngredients(ctx)
 	if err != nil {
 		return internalErrors.Wrap(internalErrors.ErrInternalServer, "ingredient service: failed to retrieve low stock ingredients")

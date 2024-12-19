@@ -9,15 +9,24 @@ import (
 	"stockk/internal/models"
 )
 
-type IngredientRepository struct {
+type IngredientRepository interface {
+	GetIngredientByID(ctx context.Context, tx *sql.Tx, ingredientID int) (*models.Ingredient, error)
+	UpdateStock(ctx context.Context, tx *sql.Tx, ingredientID int, newStock float64) error
+	CheckLowStockIngredients(ctx context.Context) ([]models.Ingredient, error)
+	MarkAlertSent(ctx context.Context, ingredientID int) error
+}
+
+type ingredientRepository struct {
 	db *sql.DB
 }
 
-func NewIngredientRepository(db *sql.DB) *IngredientRepository {
-	return &IngredientRepository{db: db}
+func NewIngredientRepository(db *sql.DB) IngredientRepository {
+	return &ingredientRepository{db: db}
 }
 
-func (r *IngredientRepository) GetIngredientByID(ctx context.Context, tx *sql.Tx, ingredientID int) (*models.Ingredient, error) {
+var _ IngredientRepository = (*ingredientRepository)(nil)
+
+func (r *ingredientRepository) GetIngredientByID(ctx context.Context, tx *sql.Tx, ingredientID int) (*models.Ingredient, error) {
 	query := `
 		SELECT id, name, total_stock, current_stock, alert_sent 
 		FROM ingredients 
@@ -57,7 +66,7 @@ func (r *IngredientRepository) GetIngredientByID(ctx context.Context, tx *sql.Tx
 	return &ingredient, nil
 }
 
-func (r *IngredientRepository) UpdateStock(ctx context.Context, tx *sql.Tx, ingredientID int, newStock float64) error {
+func (r *ingredientRepository) UpdateStock(ctx context.Context, tx *sql.Tx, ingredientID int, newStock float64) error {
 	query := `
 		UPDATE ingredients 
 		SET current_stock = $1 
@@ -89,7 +98,7 @@ func (r *IngredientRepository) UpdateStock(ctx context.Context, tx *sql.Tx, ingr
 	return nil
 }
 
-func (r *IngredientRepository) CheckLowStockIngredients(ctx context.Context) ([]models.Ingredient, error) {
+func (r *ingredientRepository) CheckLowStockIngredients(ctx context.Context) ([]models.Ingredient, error) {
 	query := `
 		SELECT id, name, total_stock, current_stock
 		FROM ingredients
@@ -126,7 +135,7 @@ func (r *IngredientRepository) CheckLowStockIngredients(ctx context.Context) ([]
 	return lowStockIngredients, nil
 }
 
-func (r *IngredientRepository) MarkAlertSent(ctx context.Context, ingredientID int) error {
+func (r *ingredientRepository) MarkAlertSent(ctx context.Context, ingredientID int) error {
 	query := `
 		UPDATE ingredients 
 		SET alert_sent = true 

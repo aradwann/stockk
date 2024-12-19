@@ -10,17 +10,27 @@ import (
 	"time"
 )
 
-type OrderService struct {
-	orderRepo      *repository.OrderRepository
-	productRepo    *repository.ProductRepository
-	ingredientRepo *repository.IngredientRepository
+type OrderService interface {
+	CreateOrder(ctx context.Context, orderItems []models.OrderItem) (*models.Order, error)
 }
 
-func NewOrderService(orderRepo *repository.OrderRepository, productRepo *repository.ProductRepository, ingredientRepo *repository.IngredientRepository) *OrderService {
-	return &OrderService{orderRepo: orderRepo}
+type orderService struct {
+	orderRepo      repository.OrderRepository
+	productRepo    repository.ProductRepository
+	ingredientRepo repository.IngredientRepository
 }
 
-func (os *OrderService) CreateOrder(ctx context.Context, orderItems []models.OrderItem) (*models.Order, error) {
+func NewOrderService(orderRepo repository.OrderRepository, productRepo repository.ProductRepository, ingredientRepo repository.IngredientRepository) OrderService {
+	return &orderService{
+		orderRepo:      orderRepo,
+		productRepo:    productRepo,
+		ingredientRepo: ingredientRepo,
+	}
+}
+
+var _ OrderService = (*orderService)(nil)
+
+func (os *orderService) CreateOrder(ctx context.Context, orderItems []models.OrderItem) (*models.Order, error) {
 	// Begin transaction
 	tx, err := os.orderRepo.BeginTransaction()
 	if err != nil {
@@ -36,9 +46,9 @@ func (os *OrderService) CreateOrder(ctx context.Context, orderItems []models.Ord
 
 	if err := os.orderRepo.CreateOrder(ctx, tx, order); err != nil {
 		if errors.Is(err, internalErrors.ErrNotFound) {
-			return nil, internalErrors.Wrap(internalErrors.ErrNotFound, "order not found")
+			return nil, err
 		} else {
-			return nil, internalErrors.Wrap(internalErrors.ErrInternalServer, "failed to update order")
+			return nil, internalErrors.Wrap(internalErrors.ErrInternalServer, "failed to create order")
 		}
 	}
 
@@ -52,7 +62,7 @@ func (os *OrderService) CreateOrder(ctx context.Context, orderItems []models.Ord
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
 		if errors.Is(err, internalErrors.ErrNotFound) {
-			return nil, internalErrors.Wrap(internalErrors.ErrNotFound, "order item not found")
+			return nil, err
 		} else {
 			return nil, internalErrors.Wrap(internalErrors.ErrInternalServer, "failed to commit transaction")
 		}
@@ -61,12 +71,12 @@ func (os *OrderService) CreateOrder(ctx context.Context, orderItems []models.Ord
 	return order, nil
 }
 
-func (os *OrderService) processOrderItem(ctx context.Context, tx *sql.Tx, item models.OrderItem) error {
+func (os *orderService) processOrderItem(ctx context.Context, tx *sql.Tx, item models.OrderItem) error {
 	// Retrieve the product
-	product, err := os.productRepo.GetByID(ctx, tx, item.ProductID)
+	product, err := os.productRepo.GetProductById(ctx, tx, item.ProductID)
 	if err != nil {
 		if errors.Is(err, internalErrors.ErrNotFound) {
-			return internalErrors.Wrap(internalErrors.ErrNotFound, "product not found")
+			return err
 		} else {
 			return internalErrors.Wrap(internalErrors.ErrInternalServer, "failed to get product")
 		}
@@ -82,12 +92,12 @@ func (os *OrderService) processOrderItem(ctx context.Context, tx *sql.Tx, item m
 	return nil
 }
 
-func (os *OrderService) updateIngredientStock(ctx context.Context, tx *sql.Tx, ingredientID int, amountPerUnit float64, quantity int) error {
+func (os *orderService) updateIngredientStock(ctx context.Context, tx *sql.Tx, ingredientID int, amountPerUnit float64, quantity int) error {
 	// Retrieve the ingredient
 	ingredient, err := os.ingredientRepo.GetIngredientByID(ctx, tx, ingredientID)
 	if err != nil {
 		if errors.Is(err, internalErrors.ErrNotFound) {
-			return internalErrors.Wrap(internalErrors.ErrNotFound, "ingredient not found")
+			return err
 		} else {
 			return internalErrors.Wrap(internalErrors.ErrInternalServer, "failed to get ingredient stock")
 		}
@@ -97,12 +107,12 @@ func (os *OrderService) updateIngredientStock(ctx context.Context, tx *sql.Tx, i
 	newStock := ingredient.CurrentStock - (amountPerUnit * float64(quantity))
 	// validate that remaining stock is positive number
 	if newStock < 0 {
-		return internalErrors.Wrap(internalErrors.ErrInsufficientStock, "ingredient stock is not sufficient")
+		return internalErrors.ErrInsufficientStock
 	}
 
 	if err := os.ingredientRepo.UpdateStock(ctx, tx, ingredientID, newStock); err != nil {
 		if errors.Is(err, internalErrors.ErrNotFound) {
-			return internalErrors.Wrap(internalErrors.ErrNotFound, "ingredient not found")
+			return err
 		} else {
 			return internalErrors.Wrap(internalErrors.ErrInternalServer, "failed to update ingredient stock")
 		}
