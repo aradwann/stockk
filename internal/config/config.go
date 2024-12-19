@@ -17,6 +17,7 @@ type Config struct {
 	EmailSenderName     string `mapstructure:"EMAIL_SENDER_NAME"`
 	EmailSenderAddress  string `mapstructure:"EMAIL_SENDER_ADDRESS"`
 	EmailSenderPassword string `mapstructure:"EMAIL_SENDER_PASSWORD"`
+	TestMerchantEmail   string `mapstructure:"TEST_MERCHANT_EMAIL"`
 }
 
 // LoadConfig read configuration from the file or environment variables

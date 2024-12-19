@@ -33,11 +33,6 @@ func (processor *RedisTaskProcessor) ProcessTaskSendAlertEmail(ctx context.Conte
 			ingredient.Name, percentRemaining,
 		))
 
-		// Mark the alert as sent for the ingredient
-		err := processor.ingredientRepo.MarkAlertSent(ctx, ingredient.ID)
-		if err != nil {
-			return fmt.Errorf("failed to mark alert as sent for ingredient ID %d: %w", ingredient.ID, err)
-		}
 	}
 
 	contentBuilder.WriteString("</ul><br/>Please replenish these ingredients soon to avoid disruption.<br/>Best regards,<br/>The Stockk Team")
@@ -46,12 +41,21 @@ func (processor *RedisTaskProcessor) ProcessTaskSendAlertEmail(ctx context.Conte
 	content := contentBuilder.String()
 
 	// Send the email
-	testMerchantEmail := "aradwann@proton.me"
+	testMerchantEmail := processor.testMerchantEmail
 	subject := "Stockk Alert: Low Stock Warning"
 	to := []string{testMerchantEmail} // Test email for demonstration purposes
 	err := processor.mailer.SendEmail(subject, content, to, nil, nil, nil)
 	if err != nil {
 		return fmt.Errorf("failed to send warning email: %w", err)
+	} else {
+		// email has been sent successfully
+		for _, ingredient := range payload.Ingredients {
+			// Mark the alert as sent for the ingredient
+			err := processor.ingredientRepo.MarkAlertSent(ctx, ingredient.ID)
+			if err != nil {
+				return fmt.Errorf("failed to mark alert as sent for ingredient ID %d: %w", ingredient.ID, err)
+			}
+		}
 	}
 
 	// Log the processed task

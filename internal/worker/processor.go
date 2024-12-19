@@ -24,12 +24,13 @@ type TaskProcessor interface {
 }
 
 type RedisTaskProcessor struct {
-	server         *asynq.Server
-	ingredientRepo *repository.IngredientRepository
-	mailer         mail.EmailSender
+	server            *asynq.Server
+	ingredientRepo    *repository.IngredientRepository
+	mailer            mail.EmailSender
+	testMerchantEmail string
 }
 
-func NewRedisTaskProcessor(redisOpt asynq.RedisClientOpt, ingredientRepo *repository.IngredientRepository, mailer mail.EmailSender) TaskProcessor {
+func NewRedisTaskProcessor(redisOpt asynq.RedisClientOpt, ingredientRepo *repository.IngredientRepository, mailer mail.EmailSender, testMerchantEmail string) TaskProcessor {
 	server := asynq.NewServer(redisOpt, asynq.Config{
 		Queues: map[string]int{
 			QueueCritical: 6,
@@ -48,9 +49,10 @@ func NewRedisTaskProcessor(redisOpt asynq.RedisClientOpt, ingredientRepo *reposi
 	})
 
 	return &RedisTaskProcessor{
-		server:         server,
-		ingredientRepo: ingredientRepo,
-		mailer:         mailer,
+		server:            server,
+		ingredientRepo:    ingredientRepo,
+		mailer:            mailer,
+		testMerchantEmail: testMerchantEmail,
 	}
 }
 
@@ -64,7 +66,7 @@ func (processor *RedisTaskProcessor) Start() error {
 func RunTaskProcessor(config config.Config, redisOpts asynq.RedisClientOpt, ingredientRepo *repository.IngredientRepository) {
 	mailer := mail.NewGmailSender(config.EmailSenderName, config.EmailSenderAddress, config.EmailSenderPassword)
 
-	taskProcessor := NewRedisTaskProcessor(redisOpts, ingredientRepo, mailer)
+	taskProcessor := NewRedisTaskProcessor(redisOpts, ingredientRepo, mailer, config.TestMerchantEmail)
 	slog.Info("start task processor")
 	err := taskProcessor.Start()
 	if err != nil {

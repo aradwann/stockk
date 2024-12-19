@@ -1,8 +1,8 @@
 CREATE TABLE ingredients (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
-    total_stock NUMERIC(10, 2) NOT NULL,
-    current_stock NUMERIC(10, 2) NOT NULL,
+    total_stock NUMERIC(10, 2) NOT NULL CHECK (total_stock >= 0),
+    current_stock NUMERIC(10, 2) NOT NULL CHECK (current_stock >= 0),
     alert_sent BOOLEAN DEFAULT FALSE
 );
 
@@ -14,7 +14,7 @@ CREATE TABLE products (
 CREATE TABLE product_ingredients (
     product_id INTEGER REFERENCES products(id),
     ingredient_id INTEGER REFERENCES ingredients(id),
-    amount NUMERIC(10, 2) NOT NULL,
+    amount NUMERIC(10, 2) NOT NULL CHECK (amount >= 0),
     PRIMARY KEY (product_id, ingredient_id)
 );
 
