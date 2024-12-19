@@ -32,6 +32,8 @@ func (is *IngredientService) CheckIngredientLevelsAndAlert(ctx context.Context) 
 		return err
 	}
 
-	is.taskRepo.EnqueueAlertEmailTask(ctx, &repository.PayloadSendAlertEmail{Ingredients: ingredients})
+	if len(ingredients) > 0 {
+		is.taskRepo.EnqueueAlertEmailTask(ctx, &repository.PayloadSendAlertEmail{Ingredients: ingredients})
+	}
 	return nil
 }
