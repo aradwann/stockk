@@ -2,7 +2,8 @@ package service
 
 import (
 	"context"
-
+	"errors"
+	internalErrors "stockk/internal/errors"
 	"stockk/internal/models"
 	"stockk/internal/repository"
 )
@@ -20,7 +21,12 @@ func (is *IngredientService) UpdateIngredientStock(ctx context.Context, ingredie
 	for _, ingredient := range ingredients {
 		// Update stock in database
 		if err := is.ingredientRepo.UpdateStock(ctx, nil, ingredient.ID, ingredient.CurrentStock); err != nil {
-			return err
+			if errors.Is(err, internalErrors.ErrNotFound) {
+				return internalErrors.Wrap(internalErrors.ErrNotFound, "ingredient service: ingredient not found")
+			} else {
+				return internalErrors.Wrap(internalErrors.ErrInternalServer, "ingredient service: failed to update ingredient")
+			}
+
 		}
 	}
 	return nil
@@ -29,11 +35,14 @@ func (is *IngredientService) UpdateIngredientStock(ctx context.Context, ingredie
 func (is *IngredientService) CheckIngredientLevelsAndAlert(ctx context.Context) error {
 	ingredients, err := is.ingredientRepo.CheckLowStockIngredients(ctx)
 	if err != nil {
-		return err
+		return internalErrors.Wrap(internalErrors.ErrInternalServer, "ingredient service: failed to retrieve low stock ingredients")
 	}
 
 	if len(ingredients) > 0 {
-		is.taskRepo.EnqueueAlertEmailTask(ctx, &repository.PayloadSendAlertEmail{Ingredients: ingredients})
+		if err := is.taskRepo.EnqueueAlertEmailTask(ctx, &repository.PayloadSendAlertEmail{Ingredients: ingredients}); err != nil {
+			return internalErrors.Wrap(internalErrors.ErrInternalServer, "ingredient service: failed to enqueue alert email task")
+
+		}
 	}
 	return nil
 }

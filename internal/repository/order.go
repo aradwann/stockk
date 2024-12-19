@@ -3,9 +3,11 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"fmt"
+	"log/slog"
+	"net/http"
 	"time"
 
+	"stockk/internal/errors"
 	"stockk/internal/models"
 )
 
@@ -18,7 +20,12 @@ func NewOrderRepository(db *sql.DB) *OrderRepository {
 }
 
 func (r *OrderRepository) BeginTransaction() (*sql.Tx, error) {
-	return r.db.Begin()
+	tx, err := r.db.Begin()
+	if err != nil {
+		slog.Error("error begin transation", "error", err)
+		return nil, errors.Wrap(errors.ErrInternalServer, "transaction failed")
+	}
+	return tx, nil
 }
 
 func (r *OrderRepository) CreateOrder(ctx context.Context, tx *sql.Tx, order *models.Order) error {
@@ -31,7 +38,8 @@ func (r *OrderRepository) CreateOrder(ctx context.Context, tx *sql.Tx, order *mo
 	var orderID int
 	err := tx.QueryRowContext(ctx, query, time.Now()).Scan(&orderID)
 	if err != nil {
-		return fmt.Errorf("error creating order: %w", err)
+		slog.Error("failed to create order", "error", err)
+		return errors.Wrap(errors.ErrInternalServer, "query failed")
 	}
 
 	// Insert order items
@@ -43,7 +51,8 @@ func (r *OrderRepository) CreateOrder(ctx context.Context, tx *sql.Tx, order *mo
 	for _, item := range order.Items {
 		_, err := tx.ExecContext(ctx, itemQuery, orderID, item.ProductID, item.Quantity)
 		if err != nil {
-			return fmt.Errorf("error creating order item: %w", err)
+			slog.Error("failed to create order", "error", err)
+			return errors.Wrap(errors.ErrInternalServer, "query failed")
 		}
 	}
 
@@ -73,84 +82,34 @@ func (r *OrderRepository) GetOrderByID(ctx context.Context, orderID int) (*model
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("order with ID %d not found", orderID)
+			return nil, errors.Wrap(errors.ErrNotFound, "order not found")
 		}
-		return nil, fmt.Errorf("error fetching order: %w", err)
+		slog.Error("failed to retrieve order", "error", err)
+		return nil, errors.Wrap(errors.ErrInternalServer, "query failed")
 	}
 
 	// Fetch order items
 	rows, err := r.db.QueryContext(ctx, itemsQuery, orderID)
 	if err != nil {
-		return nil, fmt.Errorf("error fetching order items: %w", err)
+		appErr := errors.NewAppError(http.StatusInternalServerError, "error fetching order items", err)
+		slog.Error(appErr.Message, "orderID", orderID, "error", err)
+		return nil, appErr
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		var item models.OrderItem
 		if err := rows.Scan(&item.ProductID, &item.Quantity); err != nil {
-			return nil, fmt.Errorf("error scanning order item: %w", err)
+			slog.Error("failed to retrieve order item", "error", err)
+			return nil, errors.Wrap(errors.ErrInternalServer, "query failed")
 		}
 		order.Items = append(order.Items, item)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error reading order items: %w", err)
+		slog.Error("failed to retrieve order item", "error", err)
+		return nil, errors.Wrap(errors.ErrInternalServer, "query failed")
 	}
 
 	return &order, nil
-}
-
-func (r *OrderRepository) ListOrders(ctx context.Context, limit, offset int) ([]models.Order, error) {
-	query := `
-		SELECT id, created_at
-		FROM orders
-		ORDER BY created_at DESC
-		LIMIT $1 OFFSET $2
-	`
-
-	rows, err := r.db.QueryContext(ctx, query, limit, offset)
-	if err != nil {
-		return nil, fmt.Errorf("error listing orders: %w", err)
-	}
-	defer rows.Close()
-
-	var orders []models.Order
-	for rows.Next() {
-		var order models.Order
-		if err := rows.Scan(&order.ID, &order.CreatedAt); err != nil {
-			return nil, fmt.Errorf("error scanning order: %w", err)
-		}
-
-		// Fetch items for each order
-		itemsQuery := `
-			SELECT product_id, quantity
-			FROM order_items
-			WHERE order_id = $1
-		`
-		itemRows, err := r.db.QueryContext(ctx, itemsQuery, order.ID)
-		if err != nil {
-			return nil, fmt.Errorf("error fetching order items: %w", err)
-		}
-		defer itemRows.Close()
-
-		for itemRows.Next() {
-			var item models.OrderItem
-			if err := itemRows.Scan(&item.ProductID, &item.Quantity); err != nil {
-				return nil, fmt.Errorf("error scanning order item: %w", err)
-			}
-			order.Items = append(order.Items, item)
-		}
-
-		if err = itemRows.Err(); err != nil {
-			return nil, fmt.Errorf("error reading order items: %w", err)
-		}
-
-		orders = append(orders, order)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error reading orders: %w", err)
-	}
-
-	return orders, nil
 }

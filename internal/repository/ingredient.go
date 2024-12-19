@@ -3,8 +3,9 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"fmt"
+	"log/slog"
 
+	"stockk/internal/errors"
 	"stockk/internal/models"
 )
 
@@ -16,7 +17,7 @@ func NewIngredientRepository(db *sql.DB) *IngredientRepository {
 	return &IngredientRepository{db: db}
 }
 
-func (r *IngredientRepository) GetIngredientByID(ctx context.Context, tx *sql.Tx, id int) (*models.Ingredient, error) {
+func (r *IngredientRepository) GetIngredientByID(ctx context.Context, tx *sql.Tx, ingredientID int) (*models.Ingredient, error) {
 	query := `
 		SELECT id, name, total_stock, current_stock, alert_sent 
 		FROM ingredients 
@@ -28,7 +29,7 @@ func (r *IngredientRepository) GetIngredientByID(ctx context.Context, tx *sql.Tx
 
 	// Use transaction if provided
 	if tx != nil {
-		err = tx.QueryRowContext(ctx, query, id).Scan(
+		err = tx.QueryRowContext(ctx, query, ingredientID).Scan(
 			&ingredient.ID,
 			&ingredient.Name,
 			&ingredient.TotalStock,
@@ -36,7 +37,7 @@ func (r *IngredientRepository) GetIngredientByID(ctx context.Context, tx *sql.Tx
 			&ingredient.AlertSent,
 		)
 	} else {
-		err = r.db.QueryRowContext(ctx, query, id).Scan(
+		err = r.db.QueryRowContext(ctx, query, ingredientID).Scan(
 			&ingredient.ID,
 			&ingredient.Name,
 			&ingredient.TotalStock,
@@ -47,46 +48,13 @@ func (r *IngredientRepository) GetIngredientByID(ctx context.Context, tx *sql.Tx
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("ingredient with ID %d not found", id)
+			return nil, errors.Wrap(errors.ErrNotFound, "ingredient not found")
 		}
-		return nil, fmt.Errorf("error fetching ingredient: %w", err)
+		slog.Error("failed to retrieve ingredient", "ingredientID", ingredientID, "error", err)
+		return nil, errors.Wrap(errors.ErrInternalServer, "query failed")
 	}
 
 	return &ingredient, nil
-}
-
-func (r *IngredientRepository) GetAllIngredients(ctx context.Context) ([]models.Ingredient, error) {
-	query := `
-		SELECT id, name, total_stock, current_stock, alert_sent 
-		FROM ingredients
-	`
-
-	rows, err := r.db.QueryContext(ctx, query)
-	if err != nil {
-		return nil, fmt.Errorf("error querying ingredients: %w", err)
-	}
-	defer rows.Close()
-
-	var ingredients []models.Ingredient
-	for rows.Next() {
-		var ingredient models.Ingredient
-		if err := rows.Scan(
-			&ingredient.ID,
-			&ingredient.Name,
-			&ingredient.TotalStock,
-			&ingredient.CurrentStock,
-			&ingredient.AlertSent,
-		); err != nil {
-			return nil, fmt.Errorf("error scanning ingredient: %w", err)
-		}
-		ingredients = append(ingredients, ingredient)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error reading ingredients: %w", err)
-	}
-
-	return ingredients, nil
 }
 
 func (r *IngredientRepository) UpdateStock(ctx context.Context, tx *sql.Tx, ingredientID int, newStock float64) error {
@@ -103,16 +71,19 @@ func (r *IngredientRepository) UpdateStock(ctx context.Context, tx *sql.Tx, ingr
 		result, err = r.db.ExecContext(ctx, query, newStock, ingredientID)
 	}
 	if err != nil {
-		return fmt.Errorf("error updating ingredient stock: %w", err)
+		slog.Error("failed to update ingredient stock", "ingredientID", ingredientID, "error", err)
+		return errors.Wrap(errors.ErrInternalServer, "query failed")
+
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("error checking rows affected: %w", err)
+		slog.Error("failed to update ingredient stock", "ingredientID", ingredientID, "error", err)
+		return errors.Wrap(errors.ErrInternalServer, "query failed")
 	}
 
 	if rowsAffected == 0 {
-		return fmt.Errorf("no ingredient found with ID %d", ingredientID)
+		return errors.Wrap(errors.ErrNotFound, "ingredient not found")
 	}
 
 	return nil
@@ -127,7 +98,8 @@ func (r *IngredientRepository) CheckLowStockIngredients(ctx context.Context) ([]
 
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("error querying low stock ingredients: %w", err)
+		slog.Error("failed to retrieve low stock ingredients", "error", err)
+		return nil, errors.Wrap(errors.ErrInternalServer, "query failed")
 	}
 	defer rows.Close()
 
@@ -140,13 +112,15 @@ func (r *IngredientRepository) CheckLowStockIngredients(ctx context.Context) ([]
 			&ingredient.TotalStock,
 			&ingredient.CurrentStock,
 		); err != nil {
-			return nil, fmt.Errorf("error scanning low stock ingredient: %w", err)
+			slog.Error("failed to retrieve low stock ingredients", "error", err)
+			return nil, errors.Wrap(errors.ErrInternalServer, "query failed")
 		}
 		lowStockIngredients = append(lowStockIngredients, ingredient)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error reading low stock ingredients: %w", err)
+		slog.Error("failed to retrieve low stock ingredients", "error", err)
+		return nil, errors.Wrap(errors.ErrInternalServer, "query failed")
 	}
 
 	return lowStockIngredients, nil
@@ -161,16 +135,20 @@ func (r *IngredientRepository) MarkAlertSent(ctx context.Context, ingredientID i
 
 	result, err := r.db.ExecContext(ctx, query, ingredientID)
 	if err != nil {
-		return fmt.Errorf("error marking alert as sent: %w", err)
+		slog.Error("failed to update ingredient alert status", "error", err)
+		return errors.Wrap(errors.ErrInternalServer, "query failed")
+
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("error checking rows affected: %w", err)
+		slog.Error("failed to update ingredient alert status", "error", err)
+		return errors.Wrap(errors.ErrInternalServer, "query failed")
+
 	}
 
 	if rowsAffected == 0 {
-		return fmt.Errorf("no ingredient found with ID %d", ingredientID)
+		return errors.Wrap(errors.ErrNotFound, "ingredient not found")
 	}
 
 	return nil

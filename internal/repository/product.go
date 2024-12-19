@@ -3,7 +3,8 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"fmt"
+	"log/slog"
+	"stockk/internal/errors"
 	"stockk/internal/models"
 )
 
@@ -35,9 +36,10 @@ func (r *ProductRepository) GetByID(ctx context.Context, tx *sql.Tx, productID i
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("product with ID %d not found", productID)
+			return nil, errors.Wrap(errors.ErrNotFound, "product not found")
 		}
-		return nil, fmt.Errorf("error fetching product: %w", err)
+		slog.Error("failed to retrieve product", "error", err)
+		return nil, errors.Wrap(errors.ErrInternalServer, "query failed")
 	}
 
 	// Fetch the ingredients for the product
@@ -56,7 +58,8 @@ func (r *ProductRepository) GetByID(ctx context.Context, tx *sql.Tx, productID i
 
 	}
 	if err != nil {
-		return nil, fmt.Errorf("error fetching ingredients for product: %w", err)
+		slog.Error("failed to retrieve order ingredients", "error", err)
+		return nil, errors.Wrap(errors.ErrInternalServer, "query failed")
 	}
 	defer rows.Close()
 
@@ -64,13 +67,15 @@ func (r *ProductRepository) GetByID(ctx context.Context, tx *sql.Tx, productID i
 	for rows.Next() {
 		var productIngredient models.ProductIngredient
 		if err := rows.Scan(&productIngredient.ProductID, &productIngredient.IngredientID, &productIngredient.Amount); err != nil {
-			return nil, fmt.Errorf("error scanning ingredient: %w", err)
+			slog.Error("failed to retrieve order ingredients", "error", err)
+			return nil, errors.Wrap(errors.ErrInternalServer, "query failed")
 		}
 		product.Ingredients = append(product.Ingredients, productIngredient)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error reading ingredient rows: %w", err)
+		slog.Error("failed to retrieve order ingredients", "error", err)
+		return nil, errors.Wrap(errors.ErrInternalServer, "query failed")
 	}
 
 	return &product, nil

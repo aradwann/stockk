@@ -74,42 +74,7 @@ func TestIngredientRepository_GetIngredientByID_NotFound(t *testing.T) {
 	// Assertions
 	assert.Error(t, err)
 	assert.Nil(t, ingredient)
-	assert.Contains(t, err.Error(), "ingredient with ID 999 not found")
-
-	// Ensure that all expectations were met
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("There were unfulfilled expectations: %v", err)
-	}
-}
-
-func TestIngredientRepository_GetAllIngredients(t *testing.T) {
-	// Create a mock DB and mock objects
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("Failed to open mock database: %v", err)
-	}
-	defer db.Close()
-
-	repo := NewIngredientRepository(db)
-
-	// Define the expected list of ingredients
-	expectedIngredients := []models.Ingredient{
-		{ID: 1, Name: "Sugar", TotalStock: 100, CurrentStock: 40, AlertSent: false},
-		{ID: 2, Name: "Salt", TotalStock: 200, CurrentStock: 150, AlertSent: true},
-	}
-
-	// Mock the query for getting all ingredients
-	mock.ExpectQuery(`SELECT id, name, total_stock, current_stock, alert_sent FROM ingredients`).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "total_stock", "current_stock", "alert_sent"}).
-			AddRow(expectedIngredients[0].ID, expectedIngredients[0].Name, expectedIngredients[0].TotalStock, expectedIngredients[0].CurrentStock, expectedIngredients[0].AlertSent).
-			AddRow(expectedIngredients[1].ID, expectedIngredients[1].Name, expectedIngredients[1].TotalStock, expectedIngredients[1].CurrentStock, expectedIngredients[1].AlertSent))
-
-	// Call the method under test
-	ingredients, err := repo.GetAllIngredients(context.Background())
-
-	// Assertions
-	assert.NoError(t, err)
-	assert.Equal(t, expectedIngredients, ingredients)
+	assert.Contains(t, err.Error(), "ingredient not found")
 
 	// Ensure that all expectations were met
 	if err := mock.ExpectationsWereMet(); err != nil {

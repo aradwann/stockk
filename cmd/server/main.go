@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	internalMiddleware "stockk/internal/middleware"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
@@ -69,6 +71,7 @@ func main() {
 	r.Use(slogchi.New(logger))
 	r.Use(middleware.Recoverer)
 	r.Use(render.SetContentType(render.ContentTypeJSON))
+	r.Use(internalMiddleware.ErrorHandlerMiddleware)
 
 	// CORS middleware
 	r.Use(cors.Handler(cors.Options{
@@ -129,3 +132,11 @@ func main() {
 
 	logger.Info("Server exited")
 }
+
+// TODO:
+// - swagger
+// - e2e test cases:
+// 		* happy scenario
+// 		* product not found
+// 		* insufficient quantity
+// - refactor to use stored procedures (more performant and secure) or santize string to avoid sql injection
