@@ -9,10 +9,11 @@ import (
 
 type IngredientService struct {
 	ingredientRepo *repository.IngredientRepository
+	taskRepo       *repository.TaskQueueRepository
 }
 
-func NewIngredientService(ingredientRepo *repository.IngredientRepository) *IngredientService {
-	return &IngredientService{ingredientRepo: ingredientRepo}
+func NewIngredientService(ingredientRepo *repository.IngredientRepository, taskRepo *repository.TaskQueueRepository) *IngredientService {
+	return &IngredientService{ingredientRepo: ingredientRepo, taskRepo: taskRepo}
 }
 
 func (is *IngredientService) UpdateIngredientStock(ctx context.Context, ingredients []models.Ingredient) error {
@@ -26,34 +27,11 @@ func (is *IngredientService) UpdateIngredientStock(ctx context.Context, ingredie
 }
 
 func (is *IngredientService) CheckIngredientLevelsAndAlert(ctx context.Context) error {
-	ingredients, err := is.ingredientRepo.GetAllIngredients(ctx)
+	ingredients, err := is.ingredientRepo.CheckLowStockIngredients(ctx)
 	if err != nil {
 		return err
 	}
 
-	for _, ingredient := range ingredients {
-		// Calculate percentage
-		percentRemaining := (ingredient.CurrentStock / ingredient.TotalStock) * 100
-
-		// Check if below 50% and alert not sent
-		if percentRemaining < 50 && !ingredient.AlertSent {
-			// Send email alert
-			// TODO
-			// emailSubject := fmt.Sprintf("Low Stock Alert: %s", ingredient.Name)
-			// emailBody := fmt.Sprintf("%s is low on stock. Current stock: %.2f",
-			// 	ingredient.Name, ingredient.CurrentStock)
-
-			// if err := is.emailService.SendEmail(emailSubject, emailBody); err != nil {
-			// 	log.Printf("Failed to send email for %s: %v", ingredient.Name, err)
-			// 	continue
-			// }
-
-			// Mark alert as sent in database
-			// if err := is.ingredientRepo.MarkAlertSent(ctx, ingredient.ID); err != nil {
-			// 	log.Printf("Failed to mark alert sent for %s: %v", ingredient.Name, err)
-			// }
-		}
-	}
-
+	is.taskRepo.EnqueueAlertEmailTask(ctx, &repository.PayloadSendAlertEmail{Ingredients: ingredients})
 	return nil
 }

@@ -1,0 +1,14 @@
+{
+	"Servers": {
+		"1": {
+			"Name": "stockk",
+			"Group": "Servers",
+			"Host": "postgres",
+			"Port": 5432,
+			"MaintenanceDB": "postgres",
+			"Username": "root",
+			"Password": "secret",
+			"SSLMode": "prefer"
+		}
+	}
+}

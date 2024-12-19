@@ -15,14 +15,17 @@ import (
 )
 
 type OrderController struct {
-	orderService *service.OrderService
+	orderService      *service.OrderService
+	ingredientService *service.IngredientService
 }
 
 func NewOrderController(
 	orderService *service.OrderService,
+	ingredientService *service.IngredientService,
 ) *OrderController {
 	return &OrderController{
-		orderService: orderService,
+		orderService:      orderService,
+		ingredientService: ingredientService,
 	}
 }
 
@@ -30,6 +33,7 @@ type orderRequest struct {
 	Products []models.OrderItem `json:"products"`
 }
 
+// TODO: send error in case ingredients are not sufficient
 func (oc *OrderController) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	var orderRequest orderRequest
 	if err := json.NewDecoder(r.Body).Decode(&orderRequest); err != nil {
@@ -51,7 +55,9 @@ func (oc *OrderController) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Check ingredient levels and send alerts if needed
+	// send email tasks to want about insuffient ingredients below 50%
+	oc.ingredientService.CheckIngredientLevelsAndAlert(r.Context())
+
 	render.Status(r, http.StatusCreated)
 	render.JSON(w, r, order)
 }

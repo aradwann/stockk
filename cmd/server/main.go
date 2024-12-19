@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/render"
+	"github.com/hibiken/asynq"
 	slogchi "github.com/samber/slog-chi"
 
 	"stockk/internal/config"
@@ -20,6 +21,7 @@ import (
 	"stockk/internal/db"
 	"stockk/internal/repository"
 	"stockk/internal/service"
+	"stockk/internal/worker"
 )
 
 func main() {
@@ -38,16 +40,24 @@ func main() {
 	dbConn := db.InitDatabase(cfg)
 	defer dbConn.Close()
 
+	// Set up Redis options for task distribution.
+	RedisClientOpts := asynq.RedisClientOpt{Addr: cfg.RedisAddress}
+	asynqClient := asynq.NewClient(RedisClientOpts)
+	defer asynqClient.Close()
+
 	// Initialize repositories
 	ingredientRepo := repository.NewIngredientRepository(dbConn)
 	orderRepo := repository.NewOrderRepository(dbConn)
 	productRepo := repository.NewProductRepository(dbConn)
-
+	taskQueueRepo := repository.NewTaskQueueRepository(asynqClient)
 	// Initialize services
 	orderService := service.NewOrderService(orderRepo, productRepo, ingredientRepo)
+	ingredientService := service.NewIngredientService(ingredientRepo, taskQueueRepo)
 
 	// Initialize controllers
-	orderController := controllers.NewOrderController(orderService)
+	orderController := controllers.NewOrderController(orderService, ingredientService)
+
+	go worker.RunTaskProcessor(cfg, RedisClientOpts, ingredientRepo)
 
 	// Create router
 	r := chi.NewRouter()

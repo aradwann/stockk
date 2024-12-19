@@ -23,6 +23,11 @@ services:
       - PGADMIN_DEFAULT_PASSWORD=SuperSecret
     ports:
       - "80:80"
+    depends_on:
+      - postgres
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./servers.json:/pgadmin4/servers.json
 
   redis:
     image: redis:7-alpine
@@ -51,3 +56,4 @@ services:
 
 volumes:
   data-volume:
+  pgadmin_data:
