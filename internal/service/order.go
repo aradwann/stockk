@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	internalErrors "stockk/internal/errors"
 	"stockk/internal/models"
 	"stockk/internal/repository"
@@ -38,7 +39,9 @@ func (os *orderService) CreateOrder(ctx context.Context, orderItems []models.Ord
 	// Defer rollback, this will be called only if there's an error before committing
 	defer func() {
 		if err != nil {
-			tx.Rollback()
+			if err := tx.Rollback(); err != nil {
+				slog.Error("failed to rollback transaction", "error", err)
+			}
 		}
 	}()
 

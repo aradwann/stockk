@@ -2,9 +2,6 @@ package db
 
 import (
 	"database/sql"
-	"os"
-	"path/filepath"
-	"strings"
 
 	"log/slog"
 
@@ -46,29 +43,29 @@ func RunDBMigrations(db *sql.DB, migrationsURL string) {
 
 }
 
-// Get a list of SQL files in the migration directory
-func getSQLFiles(migrationDir string) ([]string, error) {
-	var sqlFiles []string
+// // Get a list of SQL files in the migration directory
+// func getSQLFiles(migrationDir string) ([]string, error) {
+// 	var sqlFiles []string
 
-	err := filepath.Walk(migrationDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err // Immediately return errors for short-circuiting
-		}
+// 	err := filepath.Walk(migrationDir, func(path string, info os.FileInfo, err error) error {
+// 		if err != nil {
+// 			return err // Immediately return errors for short-circuiting
+// 		}
 
-		// Only process regular files with .sql extension
-		if info.Mode().IsRegular() && strings.HasSuffix(path, ".sql") {
-			sqlFiles = append(sqlFiles, path)
-		}
+// 		// Only process regular files with .sql extension
+// 		if info.Mode().IsRegular() && strings.HasSuffix(path, ".sql") {
+// 			sqlFiles = append(sqlFiles, path)
+// 		}
 
-		return nil
-	})
+// 		return nil
+// 	})
 
-	if err != nil {
-		return nil, err
-	}
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return sqlFiles, nil
-}
+// 	return sqlFiles, nil
+// }
 
 // func runUnversionedMigrations(db *sql.DB, migrationDir string) error {
 

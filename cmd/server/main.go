@@ -95,7 +95,11 @@ func main() {
 	// Health check
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, err := w.Write([]byte("OK"))
+		if err != nil {
+			slog.Error("Failed to write response", "error", err)
+		}
+
 	})
 
 	// Server configuration

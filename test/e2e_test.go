@@ -27,11 +27,19 @@ func TestCreateOrderE2EWithTestcontainers(t *testing.T) {
 
 	// Spin up PostgreSQL container
 	postgresContainer, dbConnString := setupPostgresContainer(t, ctx)
-	defer postgresContainer.Terminate(ctx)
+	defer func() {
+		if err := postgresContainer.Terminate(ctx); err != nil {
+			t.Fatalf("Failed to terminate Postgres container: %v", err)
+		}
+	}()
 
 	// Spin up Redis container
 	redisContainer, redisAddress := setupRedisContainer(t, ctx)
-	defer redisContainer.Terminate(ctx)
+	defer func() {
+		if err := redisContainer.Terminate(ctx); err != nil {
+			t.Fatalf("Failed to terminate Redis container: %v", err)
+		}
+	}()
 
 	cfg := config.Config{
 		DBDriver:      "pgx",

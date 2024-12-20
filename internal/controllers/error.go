@@ -25,7 +25,10 @@ func handleServiceError(w http.ResponseWriter, err error) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(appErr.Code)
-		json.NewEncoder(w).Encode(response)
+		err = json.NewEncoder(w).Encode(response)
+		if err != nil {
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -36,5 +39,8 @@ func handleServiceError(w http.ResponseWriter, err error) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusInternalServerError)
-	json.NewEncoder(w).Encode(response)
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	}
 }
