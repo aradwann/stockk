@@ -10,8 +10,8 @@ import (
 )
 
 type IngredientRepository interface {
-	GetIngredientByID(ctx context.Context, tx *sql.Tx, ingredientID int) (*models.Ingredient, error)
-	UpdateStock(ctx context.Context, tx *sql.Tx, ingredientID int, newStock float64) error
+	GetIngredientByID(ctx context.Context, tx Transaction, ingredientID int) (*models.Ingredient, error)
+	UpdateStock(ctx context.Context, tx Transaction, ingredientID int, newStock float64) error
 	CheckLowStockIngredients(ctx context.Context) ([]models.Ingredient, error)
 	MarkAlertSent(ctx context.Context, ingredientID int) error
 }
@@ -26,7 +26,7 @@ func NewIngredientRepository(db *sql.DB) IngredientRepository {
 
 var _ IngredientRepository = (*ingredientRepository)(nil)
 
-func (r *ingredientRepository) GetIngredientByID(ctx context.Context, tx *sql.Tx, ingredientID int) (*models.Ingredient, error) {
+func (r *ingredientRepository) GetIngredientByID(ctx context.Context, tx Transaction, ingredientID int) (*models.Ingredient, error) {
 	query := `
 		SELECT id, name, total_stock, current_stock, alert_sent 
 		FROM ingredients 
@@ -66,7 +66,7 @@ func (r *ingredientRepository) GetIngredientByID(ctx context.Context, tx *sql.Tx
 	return &ingredient, nil
 }
 
-func (r *ingredientRepository) UpdateStock(ctx context.Context, tx *sql.Tx, ingredientID int, newStock float64) error {
+func (r *ingredientRepository) UpdateStock(ctx context.Context, tx Transaction, ingredientID int, newStock float64) error {
 	query := `
 		UPDATE ingredients 
 		SET current_stock = $1 

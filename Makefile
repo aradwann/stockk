@@ -8,7 +8,7 @@ createmigration:
 
 # Mocks
 mock:
-	mockgen -package mockrepository -destination internal/repository/mock/repository.go stockk/internal/repository IngredientRepository,OrderRepository,ProductRepository,TaskQueueRepository
+	mockgen -package mockrepository -destination internal/repository/mock/repository.go stockk/internal/repository IngredientRepository,OrderRepository,ProductRepository,TaskQueueRepository,Transaction
 	mockgen -package mockservice -destination internal/service/mock/service.go stockk/internal/service IngredientService,OrderService
 
 

@@ -9,7 +9,7 @@ import (
 )
 
 type ProductRepository interface {
-	GetProductById(ctx context.Context, tx *sql.Tx, productId int) (*models.Product, error)
+	GetProductById(ctx context.Context, tx Transaction, productId int) (*models.Product, error)
 }
 
 type productRepository struct {
@@ -23,7 +23,7 @@ func NewProductRepository(db *sql.DB) ProductRepository {
 var _ ProductRepository = (*productRepository)(nil)
 
 // GetProductById fetches a product by its ID, including its ingredients and amounts
-func (r *productRepository) GetProductById(ctx context.Context, tx *sql.Tx, productID int) (*models.Product, error) {
+func (r *productRepository) GetProductById(ctx context.Context, tx Transaction, productID int) (*models.Product, error) {
 	// Fetch the basic product details
 	productQuery := `SELECT id, name FROM products WHERE id = $1`
 	var product models.Product

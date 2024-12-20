@@ -132,11 +132,3 @@ func main() {
 
 	logger.Info("Server exited")
 }
-
-// TODO:
-// - swagger
-// - e2e test cases:
-// 		* happy scenario
-// 		* product not found
-// 		* insufficient quantity
-// - refactor to use stored procedures (more performant and secure) or santize string to avoid sql injection

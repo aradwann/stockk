@@ -14,8 +14,8 @@ import (
 )
 
 type OrderRepository interface {
-	BeginTransaction() (*sql.Tx, error)
-	CreateOrder(ctx context.Context, tx *sql.Tx, order *models.Order) error
+	BeginTransaction() (Transaction, error)
+	CreateOrder(ctx context.Context, tx Transaction, order *models.Order) error
 	GetOrderByID(ctx context.Context, orderId int) (*models.Order, error)
 }
 
@@ -29,7 +29,7 @@ func NewOrderRepository(db *sql.DB) OrderRepository {
 
 var _ OrderRepository = (*orderRepository)(nil)
 
-func (r *orderRepository) BeginTransaction() (*sql.Tx, error) {
+func (r *orderRepository) BeginTransaction() (Transaction, error) {
 	tx, err := r.db.Begin()
 	if err != nil {
 		slog.Error("error begin transation", "error", err)
@@ -38,7 +38,7 @@ func (r *orderRepository) BeginTransaction() (*sql.Tx, error) {
 	return tx, nil
 }
 
-func (r *orderRepository) CreateOrder(ctx context.Context, tx *sql.Tx, order *models.Order) error {
+func (r *orderRepository) CreateOrder(ctx context.Context, tx Transaction, order *models.Order) error {
 	query := `
 		INSERT INTO orders (created_at)
 		VALUES ($1)

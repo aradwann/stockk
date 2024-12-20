@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	internalErrors "stockk/internal/errors"
 	"stockk/internal/models"
@@ -36,7 +35,12 @@ func (os *orderService) CreateOrder(ctx context.Context, orderItems []models.Ord
 	if err != nil {
 		return nil, internalErrors.Wrap(internalErrors.ErrInternalServer, "failed to begin transaction")
 	}
-	defer tx.Rollback()
+	// Defer rollback, this will be called only if there's an error before committing
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
 
 	// Create the order
 	order := &models.Order{
@@ -71,7 +75,7 @@ func (os *orderService) CreateOrder(ctx context.Context, orderItems []models.Ord
 	return order, nil
 }
 
-func (os *orderService) processOrderItem(ctx context.Context, tx *sql.Tx, item models.OrderItem) error {
+func (os *orderService) processOrderItem(ctx context.Context, tx repository.Transaction, item models.OrderItem) error {
 	// Retrieve the product
 	product, err := os.productRepo.GetProductById(ctx, tx, item.ProductID)
 	if err != nil {
@@ -92,7 +96,7 @@ func (os *orderService) processOrderItem(ctx context.Context, tx *sql.Tx, item m
 	return nil
 }
 
-func (os *orderService) updateIngredientStock(ctx context.Context, tx *sql.Tx, ingredientID int, amountPerUnit float64, quantity int) error {
+func (os *orderService) updateIngredientStock(ctx context.Context, tx repository.Transaction, ingredientID int, amountPerUnit float64, quantity int) error {
 	// Retrieve the ingredient
 	ingredient, err := os.ingredientRepo.GetIngredientByID(ctx, tx, ingredientID)
 	if err != nil {
