@@ -12,7 +12,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/hibiken/asynq"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"stockk/internal/config"
@@ -22,125 +25,115 @@ import (
 	"stockk/internal/service"
 )
 
-func TestCreateOrderE2EWithTestcontainers(t *testing.T) {
+func TestCreateOrderE2EWithTable(t *testing.T) {
 	ctx := context.Background()
 
-	// Spin up PostgreSQL container
-	postgresContainer, dbConnString := setupPostgresContainer(t, ctx)
-	defer func() {
-		if err := postgresContainer.Terminate(ctx); err != nil {
-			t.Fatalf("Failed to terminate Postgres container: %v", err)
-		}
-	}()
+	// Set up PostgreSQL container
+	postgresContainer := setupPostgresContainer(t, ctx)
+	defer terminateContainer(t, postgresContainer, ctx)
 
-	// Spin up Redis container
+	// Set up Redis container
 	redisContainer, redisAddress := setupRedisContainer(t, ctx)
-	defer func() {
-		if err := redisContainer.Terminate(ctx); err != nil {
-			t.Fatalf("Failed to terminate Redis container: %v", err)
-		}
-	}()
+	defer terminateContainer(t, redisContainer, ctx)
 
-	cfg := config.Config{
-		DBDriver:      "pgx",
-		DBSource:      dbConnString,
-		RedisAddress:  redisAddress,
-		MigrationsURL: "file://../db/migrations",
-	}
-
-	// Initialize database connection
+	cfg := setupConfig(t, ctx, postgresContainer, redisAddress)
 	dbConn := db.InitDatabase(cfg)
 	defer dbConn.Close()
 
-	RedisClientOpts := asynq.RedisClientOpt{Addr: redisAddress}
-	asynqClient := asynq.NewClient(RedisClientOpts)
+	asynqClient := setupAsynqClient(redisAddress)
 	defer asynqClient.Close()
 
-	// Initialize repositories
 	ingredientRepo := repository.NewIngredientRepository(dbConn)
 	orderRepo := repository.NewOrderRepository(dbConn)
 	productRepo := repository.NewProductRepository(dbConn)
 	taskQueueRepo := repository.NewTaskQueueRepository(asynqClient)
 
-	// Initialize services
 	orderService := service.NewOrderService(orderRepo, productRepo, ingredientRepo)
 	ingredientService := service.NewIngredientService(ingredientRepo, taskQueueRepo)
 
-	// Initialize controllers
 	orderController := controllers.NewOrderController(orderService, ingredientService)
 
-	// NOTE: database is already seeded in the migrations
-	// with the following data:
-	// - ingredients: Beef (20kg), Cheese (5kg), Onion (1kg)
-	// - products: Burger (Beef 150g, Cheese 30g, Onion 20g)
-
-	// Start test server
 	router := setupRouter(orderController)
 	server := httptest.NewServer(router)
 	defer server.Close()
 
-	// Define test payload
-	payload := map[string]interface{}{
-		"products": []map[string]interface{}{
-			{"product_id": 1, "quantity": 2},
+	tests := []struct {
+		name           string
+		payload        map[string]interface{}
+		expectedStatus int
+		expectedStock  map[int]float64
+		expectedQueue  int
+	}{
+		{
+			name: "Create order with valid stock",
+			payload: map[string]interface{}{
+				"products": []map[string]interface{}{
+					{"product_id": 1, "quantity": 2},
+				},
+			},
+			expectedStatus: http.StatusCreated,
+			expectedStock: map[int]float64{
+				1: 19700, // 20kg - 2 * 150g
+				2: 4940,  // 5kg - 2 * 30g
+				3: 960,   // 1kg - 2 * 20g
+			},
+			expectedQueue: 0,
+		},
+		{
+			name: "Create large order triggering queue",
+			payload: map[string]interface{}{
+				"products": []map[string]interface{}{
+					{"product_id": 1, "quantity": 40},
+				},
+			},
+			expectedStatus: http.StatusCreated,
+			expectedStock: map[int]float64{
+				1: 13700, // 20kg - 40 * 150g
+				2: 3740,  // 5kg - 40 * 30g
+				3: 160,   // 1kg - 40 * 20g
+			},
+			expectedQueue: 1,
 		},
 	}
-	requestBody, _ := json.Marshal(payload)
 
-	// Perform HTTP POST request
-	resp, err := http.Post(server.URL+"/api/v1/orders", "application/json", bytes.NewBuffer(requestBody))
-	if err != nil {
-		t.Fatalf("Failed to make request: %v", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			requestBody, _ := json.Marshal(tt.payload)
+			resp, err := http.Post(server.URL+"/api/v1/orders", "application/json", bytes.NewBuffer(requestBody))
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			require.Equal(t, tt.expectedStatus, resp.StatusCode)
+			assertIngredientStockUpdated(t, dbConn, tt.expectedStock)
+
+			inspector := asynq.NewInspector(asynq.RedisClientOpt{Addr: redisAddress})
+			defer inspector.Close()
+
+			defaultQueue, err := inspector.GetQueueInfo("default")
+			if tt.expectedQueue > 0 {
+				require.NoError(t, err)
+				require.Equal(t, tt.expectedQueue, defaultQueue.Size)
+			} else {
+				require.Error(t, err)
+			}
+		})
 	}
-	defer resp.Body.Close()
-
-	// Assert response status
-	if resp.StatusCode != http.StatusCreated {
-		t.Errorf("Expected status code 201, got %d", resp.StatusCode)
-	}
-
-	// Assert database changes
-	assertIngredientStockUpdated(t, dbConn, map[int]float64{
-		1: 19700, // 20kg - 2 * 150g
-		2: 4940,  // 5kg - 2 * 30g
-		3: 960,   // 1kg - 2 * 20g
-	})
 }
 
-// setupPostgresContainer sets up a PostgreSQL container.
-func setupPostgresContainer(t *testing.T, ctx context.Context) (testcontainers.Container, string) {
-	req := testcontainers.ContainerRequest{
-		Image:        "postgres:17-alpine",
-		ExposedPorts: []string{"5432/tcp"},
-		Env: map[string]string{
-			"POSTGRES_USER":     "testuser",
-			"POSTGRES_PASSWORD": "testpassword",
-			"POSTGRES_DB":       "testdb",
-		},
-		WaitingFor: wait.ForListeningPort("5432/tcp").WithStartupTimeout(60 * time.Second),
-	}
-	postgresContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
-	if err != nil {
-		t.Fatalf("Failed to start PostgreSQL container: %v", err)
-	}
-
-	host, err := postgresContainer.Host(ctx)
-	if err != nil {
-		t.Fatalf("Failed to get PostgreSQL container host: %v", err)
-	}
-	port, err := postgresContainer.MappedPort(ctx, "5432")
-	if err != nil {
-		t.Fatalf("Failed to get PostgreSQL container port: %v", err)
-	}
-
-	connStr := "postgres://testuser:testpassword@" + host + ":" + port.Port() + "/testdb?sslmode=disable"
-	return postgresContainer, connStr
+func setupPostgresContainer(t *testing.T, ctx context.Context) *postgres.PostgresContainer {
+	ctr, err := postgres.Run(
+		ctx,
+		"postgres:17-alpine",
+		postgres.WithDatabase("stock-test"),
+		postgres.WithUsername("testuser"),
+		postgres.WithPassword("testpassword"),
+		postgres.BasicWaitStrategies(),
+		postgres.WithSQLDriver("pgx"),
+	)
+	require.NoError(t, err)
+	return ctr
 }
 
-// setupRedisContainer sets up a Redis container.
 func setupRedisContainer(t *testing.T, ctx context.Context) (testcontainers.Container, string) {
 	req := testcontainers.ContainerRequest{
 		Image:        "redis:7-alpine",
@@ -151,40 +144,50 @@ func setupRedisContainer(t *testing.T, ctx context.Context) (testcontainers.Cont
 		ContainerRequest: req,
 		Started:          true,
 	})
-	if err != nil {
-		t.Fatalf("Failed to start Redis container: %v", err)
-	}
+	require.NoError(t, err)
 
 	host, err := redisContainer.Host(ctx)
-	if err != nil {
-		t.Fatalf("Failed to get Redis container host: %v", err)
-	}
+	require.NoError(t, err)
 	port, err := redisContainer.MappedPort(ctx, "6379")
-	if err != nil {
-		t.Fatalf("Failed to get Redis container port: %v", err)
-	}
+	require.NoError(t, err)
 
 	addr := host + ":" + port.Port()
 	return redisContainer, addr
 }
 
-// setupRouter sets up the HTTP router for testing.
+func terminateContainer(t *testing.T, container testcontainers.Container, ctx context.Context) {
+	err := container.Terminate(ctx)
+	require.NoError(t, err)
+}
+
+func setupConfig(t *testing.T, ctx context.Context, postgresContainer *postgres.PostgresContainer, redisAddress string) config.Config {
+	dbURL, err := postgresContainer.ConnectionString(ctx)
+	require.NoError(t, err)
+
+	return config.Config{
+		DBDriver:          "pgx",
+		RedisAddress:      redisAddress,
+		MigrationsURL:     "file://../db/migrations",
+		TestMerchantEmail: "expected@domain.com",
+		DBSource:          dbURL,
+	}
+}
+
+func setupAsynqClient(redisAddress string) *asynq.Client {
+	return asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddress})
+}
+
 func setupRouter(orderController *controllers.OrderController) *chi.Mux {
 	r := chi.NewRouter()
 	r.Post("/api/v1/orders", orderController.CreateOrder)
 	return r
 }
 
-// assertIngredientStockUpdated asserts that the ingredient stock levels are updated correctly.
 func assertIngredientStockUpdated(t *testing.T, dbConn *sql.DB, expectedStock map[int]float64) {
 	for id, expected := range expectedStock {
 		var stock float64
 		err := dbConn.QueryRow("SELECT current_stock FROM ingredients WHERE id = $1", id).Scan(&stock)
-		if err != nil {
-			t.Fatalf("Failed to fetch current_stock for ingredient %d: %v", id, err)
-		}
-		if stock != expected {
-			t.Errorf("Expected current_stock for ingredient %d to be %f, got %f", id, expected, stock)
-		}
+		require.NoError(t, err)
+		require.Equal(t, expected, stock)
 	}
 }

@@ -32,11 +32,6 @@ type RedisTaskProcessor struct {
 
 func NewRedisTaskProcessor(redisOpt asynq.RedisClientOpt, ingredientRepo repository.IngredientRepository, mailer mail.EmailSender, testMerchantEmail string) TaskProcessor {
 	server := asynq.NewServer(redisOpt, asynq.Config{
-		Queues: map[string]int{
-			QueueCritical: 6,
-			QueueDefault:  3,
-			QueueLow:      1,
-		},
 		ErrorHandler: asynq.ErrorHandlerFunc(func(ctx context.Context, task *asynq.Task, err error) {
 			slog.LogAttrs(ctx,
 				slog.LevelError,
