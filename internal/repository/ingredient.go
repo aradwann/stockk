@@ -3,9 +3,11 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log/slog"
 
 	"stockk/internal/errors"
+	internalErrors "stockk/internal/errors"
 	"stockk/internal/models"
 )
 
@@ -57,7 +59,7 @@ func (r *ingredientRepository) GetIngredientByID(ctx context.Context, tx Transac
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, errors.Wrap(errors.ErrNotFound, "ingredient not found")
+			return nil, internalErrors.NewAppError(internalErrors.ErrCodeNotFound, "Resource not found", fmt.Sprintf("Ingredient with ID %d not found", ingredientID))
 		}
 		slog.Error("failed to retrieve ingredient", "ingredientID", ingredientID, "error", err)
 		return nil, errors.Wrap(errors.ErrInternalServer, "query failed")
@@ -92,7 +94,7 @@ func (r *ingredientRepository) UpdateStock(ctx context.Context, tx Transaction, 
 	}
 
 	if rowsAffected == 0 {
-		return errors.Wrap(errors.ErrNotFound, "ingredient not found")
+		return internalErrors.NewAppError(internalErrors.ErrCodeNotFound, "Resource not found", fmt.Sprintf("Ingredient with ID %d not found", ingredientID))
 	}
 
 	return nil
@@ -157,7 +159,7 @@ func (r *ingredientRepository) MarkAlertSent(ctx context.Context, ingredientID i
 	}
 
 	if rowsAffected == 0 {
-		return errors.Wrap(errors.ErrNotFound, "ingredient not found")
+		return internalErrors.NewAppError(internalErrors.ErrCodeNotFound, "Resource not found", fmt.Sprintf("Ingredient with ID %d not found", ingredientID))
 	}
 
 	return nil

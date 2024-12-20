@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -67,7 +68,7 @@ func (r *orderRepository) CreateOrder(ctx context.Context, tx Transaction, order
 				// Check for foreign key violation (SQLSTATE 23503)
 				if pgErr.Code == "23503" {
 					slog.Error("foreign key constraint violation", "detail", pgErr.Detail, "constraint", pgErr.ConstraintName)
-					return internalErrors.Wrap(internalErrors.ErrNotFound, "Product not found")
+					return internalErrors.NewAppError(internalErrors.ErrCodeNotFound, "Resource not found", fmt.Sprintf("Product with ID %d not found", item.ProductID))
 				}
 			}
 			slog.Error("failed to insert order item", "error", err)
@@ -101,7 +102,7 @@ func (r *orderRepository) GetOrderByID(ctx context.Context, orderID int) (*model
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, internalErrors.Wrap(internalErrors.ErrNotFound, "order not found")
+			return nil, internalErrors.NewAppError(internalErrors.ErrCodeNotFound, "Resource not found", fmt.Sprintf("Order with ID %d not found", orderID))
 		}
 		slog.Error("failed to retrieve order", "error", err)
 		return nil, internalErrors.Wrap(internalErrors.ErrInternalServer, "query failed")

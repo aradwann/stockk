@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	internalErrors "stockk/internal/errors"
 	"stockk/internal/models"
 	"stockk/internal/repository"
@@ -27,12 +26,7 @@ func (is *ingredientService) UpdateIngredientStock(ctx context.Context, ingredie
 	for _, ingredient := range ingredients {
 		// Update stock in database
 		if err := is.ingredientRepo.UpdateStock(ctx, nil, ingredient.ID, ingredient.CurrentStock); err != nil {
-			if errors.Is(err, internalErrors.ErrNotFound) {
-				return internalErrors.Wrap(internalErrors.ErrNotFound, "ingredient service: ingredient not found")
-			} else {
-				return internalErrors.Wrap(internalErrors.ErrInternalServer, "ingredient service: failed to update ingredient")
-			}
-
+			return err
 		}
 	}
 	return nil

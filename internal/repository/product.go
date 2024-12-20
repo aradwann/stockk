@@ -3,8 +3,10 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log/slog"
 	"stockk/internal/errors"
+	internalErrors "stockk/internal/errors"
 	"stockk/internal/models"
 )
 
@@ -42,7 +44,7 @@ func (r *productRepository) GetProductById(ctx context.Context, tx Transaction, 
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, errors.Wrap(errors.ErrNotFound, "product not found")
+			return nil, internalErrors.NewAppError(internalErrors.ErrCodeNotFound, "Resource not found", fmt.Sprintf("Product with ID %d not found", productID))
 		}
 		slog.Error("failed to retrieve product", "error", err)
 		return nil, errors.Wrap(errors.ErrInternalServer, "query failed")

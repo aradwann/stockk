@@ -2,7 +2,7 @@ package service
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	internalErrors "stockk/internal/errors"
 	"stockk/internal/models"
 	"stockk/internal/repository"
@@ -49,11 +49,7 @@ func (os *orderService) CreateOrder(ctx context.Context, orderItems []models.Ord
 	}
 
 	if err := os.orderRepo.CreateOrder(ctx, tx, order); err != nil {
-		if errors.Is(err, internalErrors.ErrNotFound) {
-			return nil, err
-		} else {
-			return nil, internalErrors.Wrap(internalErrors.ErrInternalServer, "failed to create order")
-		}
+		return nil, err
 	}
 
 	// Process each product and update ingredient stocks
@@ -65,11 +61,7 @@ func (os *orderService) CreateOrder(ctx context.Context, orderItems []models.Ord
 
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
-		if errors.Is(err, internalErrors.ErrNotFound) {
-			return nil, err
-		} else {
-			return nil, internalErrors.Wrap(internalErrors.ErrInternalServer, "failed to commit transaction")
-		}
+		return nil, err
 	}
 
 	return order, nil
@@ -79,11 +71,7 @@ func (os *orderService) processOrderItem(ctx context.Context, tx repository.Tran
 	// Retrieve the product
 	product, err := os.productRepo.GetProductById(ctx, tx, item.ProductID)
 	if err != nil {
-		if errors.Is(err, internalErrors.ErrNotFound) {
-			return err
-		} else {
-			return internalErrors.Wrap(internalErrors.ErrInternalServer, "failed to get product")
-		}
+		return err
 	}
 
 	// Update stock for each ingredient
@@ -100,26 +88,18 @@ func (os *orderService) updateIngredientStock(ctx context.Context, tx repository
 	// Retrieve the ingredient
 	ingredient, err := os.ingredientRepo.GetIngredientByID(ctx, tx, ingredientID)
 	if err != nil {
-		if errors.Is(err, internalErrors.ErrNotFound) {
-			return err
-		} else {
-			return internalErrors.Wrap(internalErrors.ErrInternalServer, "failed to get ingredient stock")
-		}
+		return err
 	}
 
 	// Calculate and update stock
 	newStock := ingredient.CurrentStock - (amountPerUnit * float64(quantity))
 	// validate that remaining stock is positive number
 	if newStock < 0 {
-		return internalErrors.ErrInsufficientStock
+		return internalErrors.NewAppError(internalErrors.ErrCodeInsufficientStock, "Insufficient Ingredient stock", fmt.Sprintf("%s stock is insufficient", ingredient.Name))
 	}
 
 	if err := os.ingredientRepo.UpdateStock(ctx, tx, ingredientID, newStock); err != nil {
-		if errors.Is(err, internalErrors.ErrNotFound) {
-			return err
-		} else {
-			return internalErrors.Wrap(internalErrors.ErrInternalServer, "failed to update ingredient stock")
-		}
+		return err
 	}
 
 	return nil

@@ -71,18 +71,38 @@ func (oc *OrderController) CreateOrder(w http.ResponseWriter, r *http.Request) {
 // validateCreateOrderRequest validates the incoming order request.
 func validateCreateOrderRequest(orderReq *orderRequest) error {
 	if orderReq == nil {
-		return errors.New("error parsing request body")
+		return internalErrors.NewAppError(
+			internalErrors.ErrCodeValidation,
+			"Invalid request body",
+			"The request body is missing or malformed",
+		)
 	}
 
-	for _, p := range orderReq.Products {
-		if err := validator.ValidateID(p.ProductID); err != nil {
-			return internalErrors.Wrap(internalErrors.ErrValidation, "invalid product ID: "+err.Error())
-
+	for _, product := range orderReq.Products {
+		if err := validateProduct(product); err != nil {
+			return err
 		}
-		if err := validator.ValidateQuantity(p.Quantity); err != nil {
-			return internalErrors.Wrap(internalErrors.ErrValidation, "invalid product quantity: "+err.Error())
+	}
 
-		}
+	return nil
+}
+
+// validateProduct validates the details of a single product in the order.
+func validateProduct(product models.OrderItem) error {
+	if err := validator.ValidateID(product.ProductID); err != nil {
+		return internalErrors.NewAppError(
+			internalErrors.ErrCodeValidation,
+			"Invalid product ID",
+			err.Error(),
+		)
+	}
+
+	if err := validator.ValidateQuantity(product.Quantity); err != nil {
+		return internalErrors.NewAppError(
+			internalErrors.ErrCodeValidation,
+			"Invalid product quantity",
+			err.Error(),
+		)
 	}
 
 	return nil
