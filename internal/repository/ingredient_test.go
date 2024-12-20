@@ -74,7 +74,7 @@ func TestIngredientRepository_GetIngredientByID_NotFound(t *testing.T) {
 	// Assertions
 	assert.Error(t, err)
 	assert.Nil(t, ingredient)
-	assert.Contains(t, err.Error(), "ingredient not found")
+	assert.Contains(t, err.Error(), "Resource not found")
 
 	// Ensure that all expectations were met
 	if err := mock.ExpectationsWereMet(); err != nil {
