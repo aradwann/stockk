@@ -37,7 +37,7 @@ func TestCreateOrderE2EWithTestcontainers(t *testing.T) {
 		DBDriver:      "pgx",
 		DBSource:      dbConnString,
 		RedisAddress:  redisAddress,
-		MigrationsURL: "file://db/migrations",
+		MigrationsURL: "file://../db/migrations",
 	}
 
 	// Initialize database connection
@@ -61,8 +61,10 @@ func TestCreateOrderE2EWithTestcontainers(t *testing.T) {
 	// Initialize controllers
 	orderController := controllers.NewOrderController(orderService, ingredientService)
 
-	// Seed database
-	// seedDatabase(t, dbConn)
+	// NOTE: database is already seeded in the migrations
+	// with the following data:
+	// - ingredients: Beef (20kg), Cheese (5kg), Onion (1kg)
+	// - products: Burger (Beef 150g, Cheese 30g, Onion 20g)
 
 	// Start test server
 	router := setupRouter(orderController)
@@ -157,26 +159,6 @@ func setupRedisContainer(t *testing.T, ctx context.Context) (testcontainers.Cont
 	addr := host + ":" + port.Port()
 	return redisContainer, addr
 }
-
-// // seedDatabase seeds the database with initial data.
-// func seedDatabase(t *testing.T, dbConn *sql.DB) {
-// 	_, err := dbConn.Exec(`
-// 		INSERT INTO ingredients (id, name, stock) VALUES
-// 		(1, 'Beef', 20000),
-// 		(2, 'Cheese', 5000),
-// 		(3, 'Onion', 1000);
-
-// 		INSERT INTO products (id, name) VALUES (1, 'Burger');
-
-// 		INSERT INTO product_ingredients (product_id, ingredient_id, amount) VALUES
-// 		(1, 1, 150),
-// 		(1, 2, 30),
-// 		(1, 3, 20);
-// 	`)
-// 	if err != nil {
-// 		t.Fatalf("Failed to seed database: %v", err)
-// 	}
-// }
 
 // setupRouter sets up the HTTP router for testing.
 func setupRouter(orderController *controllers.OrderController) *chi.Mux {

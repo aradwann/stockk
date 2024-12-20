@@ -26,7 +26,7 @@ services:
     depends_on:
       - postgres
     volumes:
-      - pgadmin_data:/var/lib/pgadmin
+      - pgadmin-data:/var/lib/pgadmin
       - ./servers.json:/pgadmin4/servers.json
 
   redis:
@@ -56,4 +56,4 @@ services:
 
 volumes:
   data-volume:
-  pgadmin_data:
+  pgadmin-data:

@@ -2,6 +2,9 @@
 
 Stockk is a RESTful service designed to track the stock of a restaurant. It provides APIs to manage orders, ingredients, and products, ensuring efficient stock management.
 
+![CI Status](https://github.com/aradwann/stockk/workflows/go.yml/badge.svg)
+[![Go Report Card](https://goreportcard.com/badge/github.com/aradwann/stockk)](https://goreportcard.com/report/github.com/aradwann/stockk)
+
 ## Table of Contents
 
 - [Features](#features)
@@ -10,17 +13,23 @@ Stockk is a RESTful service designed to track the stock of a restaurant. It prov
 - [Usage](#usage)
 - [API Endpoints](#api-endpoints)
 - [Running Tests](#running-tests)
-- [Contributing](#contributing)
 - [License](#license)
 - [Testing Workflow](#testing-workflow)
 
 ## Features
 
-- Manage orders, ingredients, and products.
-- Track stock levels in real-time.
-- Redis-based task distribution for background processing.
-- Graceful server shutdown.
-- Middleware for logging, CORS, and request handling.
+- **Manage orders, ingredients, and products**  
+  - All updates to related entities are handled in a single transaction, ensuring strong consistency across the system.  
+- **Track stock levels in real-time and alert merchants about low stock.**  
+  - each order triggers a check for ingredients stock and enqueue a task of sending email notification about the low stock ingredients.  
+- **Redis-based task distribution for background processing**  
+  - tasks are enqueued to redis ensuring presistence in case app server is restarted and potential horizontal scaling,
+
+  - email tasks are processed by a goroutine acts as worker, ensuring a concurrent performant excution of the tasks.
+- Middleware for **structured** logging, CORS, and request handling.  
+
+- Graceful server shutdown.  
+- [end-to-end tested](./test/e2e_test.go) with test conatiners.
 
 ## Installation
 
@@ -33,7 +42,9 @@ Stockk is a RESTful service designed to track the stock of a restaurant. It prov
 
 ## Configuration
 
-Configuration is managed through environment variables. Create a [.env](http:///1) file in the root directory take .env.dev as base and modify it based on your needs.
+Configuration is managed through environment variables.
+
+**Create a `.env` file in the root directory take `.env.dev` as base and modify it based on your needs.**
 
 knowing that you have to set the following variable to have a successful alert email flow
 you have to generate an [google app password](https://support.google.com/accounts/answer/185833?hl=en) for the mailer email and set it accordingly
@@ -77,14 +88,6 @@ To run the tests, use the following command:
 go test ./...
 ```
 
-## Contributing
-
-Contributions are welcome! Please open an issue or submit a pull request.
-
-## License
-
-This project is licensed under the MIT License. See the [`LICENSE`](LICENSE ) file for details.
-
 ## Testing Workflow
 
 (for development purpose)
@@ -116,3 +119,7 @@ prerequist: ensure .env file is in place and has proper email credientials
 ```sh
 curl -X POST http://localhost:8080/api/v1/orders -H "Content-Type: application/json" -d '{"product_id": "1", "quantity": 2}'
 ```
+
+## License
+
+This project is licensed under the MIT License. See the [`LICENSE`](LICENSE ) file for details.
