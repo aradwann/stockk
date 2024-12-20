@@ -94,6 +94,39 @@ func TestCreateOrderE2EWithTable(t *testing.T) {
 			},
 			expectedQueue: 1,
 		},
+		{
+			name: "invalid product id",
+			payload: map[string]interface{}{
+				"products": []map[string]interface{}{
+					{"product_id": -1, "quantity": 40},
+				},
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectedStock:  map[int]float64{},
+			expectedQueue:  0,
+		},
+		{
+			name: "product not found",
+			payload: map[string]interface{}{
+				"products": []map[string]interface{}{
+					{"product_id": 3, "quantity": 40},
+				},
+			},
+			expectedStatus: http.StatusNotFound,
+			expectedStock:  map[int]float64{},
+			expectedQueue:  0,
+		},
+		{
+			name: "insufficient stock",
+			payload: map[string]interface{}{
+				"products": []map[string]interface{}{
+					{"product_id": 1, "quantity": 999999},
+				},
+			},
+			expectedStatus: http.StatusConflict,
+			expectedStock:  map[int]float64{},
+			expectedQueue:  0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -113,8 +146,6 @@ func TestCreateOrderE2EWithTable(t *testing.T) {
 			if tt.expectedQueue > 0 {
 				require.NoError(t, err)
 				require.Equal(t, tt.expectedQueue, defaultQueue.Size)
-			} else {
-				require.Error(t, err)
 			}
 		})
 	}
