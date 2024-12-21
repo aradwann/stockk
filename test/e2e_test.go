@@ -88,9 +88,9 @@ func TestCreateOrderE2EWithTable(t *testing.T) {
 			},
 			expectedStatus: http.StatusCreated,
 			expectedStock: map[int]float64{
-				1: 13700, // 20kg - 40 * 150g
-				2: 3740,  // 5kg - 40 * 30g
-				3: 160,   // 1kg - 40 * 20g
+				1: 13700, // 19700 - 40 * 150g
+				2: 3740,  // 4940 - 40 * 30g
+				3: 160,   // 960 - 40 * 20g
 			},
 			expectedQueue: 1,
 		},

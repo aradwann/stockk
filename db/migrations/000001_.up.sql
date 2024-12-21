@@ -30,6 +30,15 @@ CREATE TABLE order_items (
     PRIMARY KEY (order_id, product_id)
 );
 
+-- INDEXES
+-- optimzation for querying low stock ingredients and ingredients that have alert not sent
+CREATE INDEX idx_ingredients_current_stock ON ingredients (current_stock);
+CREATE INDEX idx_ingredients_alert_sent ON ingredients (alert_sent);
+
+-- optimization for querying ingredients of a product
+CREATE INDEX idx_product_ingredients_product_ingredient ON product_ingredients (product_id, ingredient_id);
+
+
 -- Seed initial data
 INSERT INTO ingredients (name, total_stock, current_stock) VALUES 
 ('Beef', 20000, 20000),

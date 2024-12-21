@@ -3,6 +3,11 @@ DELETE FROM product_ingredients;
 DELETE FROM products;
 DELETE FROM ingredients;
 
+-- Drop indexes
+DROP INDEX IF EXISTS idx_product_ingredients_product_ingredient;
+DROP INDEX IF EXISTS idx_ingredients_alert_sent;
+DROP INDEX IF EXISTS idx_ingredients_current_stock;
+
 -- Drop tables in reverse order of dependencies
 DROP TABLE IF EXISTS order_items;
 DROP TABLE IF EXISTS orders;
