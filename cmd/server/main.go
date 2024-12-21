@@ -89,7 +89,7 @@ func main() {
 	// Routes
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Post("/orders", orderController.CreateOrder)
-
+		r.Post("/orders-optimized", orderController.CreateOrderOptimized)
 	})
 
 	// Health check

@@ -107,3 +107,17 @@ func (mr *MockOrderServiceMockRecorder) CreateOrder(ctx, orderItems any) *gomock
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateOrder", reflect.TypeOf((*MockOrderService)(nil).CreateOrder), ctx, orderItems)
 }
+
+// CreateOrderOptimized mocks base method.
+func (m *MockOrderService) CreateOrderOptimized(ctx context.Context, orderItems []models.OrderItem) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateOrderOptimized", ctx, orderItems)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateOrderOptimized indicates an expected call of CreateOrderOptimized.
+func (mr *MockOrderServiceMockRecorder) CreateOrderOptimized(ctx, orderItems any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateOrderOptimized", reflect.TypeOf((*MockOrderService)(nil).CreateOrderOptimized), ctx, orderItems)
+}

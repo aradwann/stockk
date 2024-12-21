@@ -17,7 +17,7 @@ func InitDatabase(config config.Config) *sql.DB {
 	}
 
 	// Run database migrations.
-	RunDBMigrations(dbConn, config.MigrationsURL)
+	RunDBMigrations(dbConn, config.MigrationsURL, config.UnversionedMigrationsUrl)
 
 	return dbConn
 }

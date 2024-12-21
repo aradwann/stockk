@@ -12,11 +12,13 @@ import (
 	"stockk/internal/models"
 
 	"github.com/jackc/pgconn"
+	"github.com/lib/pq"
 )
 
 type OrderRepository interface {
 	BeginTransaction() (Transaction, error)
 	CreateOrder(ctx context.Context, tx Transaction, order *models.Order) error
+	CreateOrderOptimized(ctx context.Context, orderItems []models.OrderItem) error
 	GetOrderByID(ctx context.Context, orderId int) (*models.Order, error)
 }
 
@@ -131,4 +133,39 @@ func (r *orderRepository) GetOrderByID(ctx context.Context, orderID int) (*model
 	}
 
 	return &order, nil
+}
+
+// CreateOrderOptimized creates an order using the stored procedure create_order_with_items
+func (r *orderRepository) CreateOrderOptimized(ctx context.Context, orderItems []models.OrderItem) error {
+	// Extract product IDs and quantities from order items
+	var productIDs []int
+	var quantities []int
+	for _, item := range orderItems {
+		productIDs = append(productIDs, item.ProductID)
+		quantities = append(quantities, item.Quantity)
+	}
+
+	// Create the order with items using the stored procedure
+	err := createOrderWithItems(r.db, productIDs, quantities)
+	if err != nil {
+		slog.Error("failed to create order with items", "error", err)
+		return internalErrors.Wrap(internalErrors.ErrInternalServer, "query failed")
+	}
+
+	return nil
+}
+
+// createOrderWithItems is a helper function to call the stored procedure create_order_with_items
+func createOrderWithItems(db *sql.DB, productIDs []int, quantities []int) error {
+	// Convert slices to PostgreSQL array format
+	// Use pq.Array to pass Go slices as PostgreSQL arrays
+	_, err := db.Exec(
+		"SELECT create_order_with_items($1, $2)",
+		pq.Array(productIDs), // Convert Go slice to PostgreSQL array
+		pq.Array(quantities), // Convert Go slice to PostgreSQL array
+	)
+	if err != nil {
+		return fmt.Errorf("error calling stored procedure: %w", err)
+	}
+	return nil
 }

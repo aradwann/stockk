@@ -196,11 +196,12 @@ func setupConfig(t *testing.T, ctx context.Context, postgresContainer *postgres.
 	require.NoError(t, err)
 
 	return config.Config{
-		DBDriver:          "pgx",
-		RedisAddress:      redisAddress,
-		MigrationsURL:     "file://../db/migrations",
-		TestMerchantEmail: "expected@domain.com",
-		DBSource:          dbURL,
+		DBDriver:                 "pgx",
+		RedisAddress:             redisAddress,
+		MigrationsURL:            "file://../db/migrations",
+		TestMerchantEmail:        "expected@domain.com",
+		DBSource:                 dbURL,
+		UnversionedMigrationsUrl: "../db/migrations/functions",
 	}
 }
 

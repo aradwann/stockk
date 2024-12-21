@@ -12,6 +12,7 @@ import (
 
 type OrderService interface {
 	CreateOrder(ctx context.Context, orderItems []models.OrderItem) (*models.Order, error)
+	CreateOrderOptimized(ctx context.Context, orderItems []models.OrderItem) error
 }
 
 type orderService struct {
@@ -106,4 +107,10 @@ func (os *orderService) updateIngredientStock(ctx context.Context, tx repository
 	}
 
 	return nil
+}
+
+// CreateOrderOptimized uses the stored procedure route
+func (os *orderService) CreateOrderOptimized(ctx context.Context, orderItems []models.OrderItem) error {
+	err := os.orderRepo.CreateOrderOptimized(ctx, orderItems)
+	return err
 }
