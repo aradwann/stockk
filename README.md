@@ -2,7 +2,7 @@
 
 Stockk is a RESTful service designed to track the stock of a restaurant. It provides APIs to manage orders, ingredients, and products, ensuring efficient stock management.
 
-![CI Status](https://github.com/aradwann/stockk/workflows/go.yml/badge.svg)
+[![Go](https://github.com/aradwann/stockk/actions/workflows/go.yml/badge.svg)](https://github.com/aradwann/stockk/actions/workflows/go.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/aradwann/stockk)](https://goreportcard.com/report/github.com/aradwann/stockk)
 
 ## Table of Contents
